@@ -350,7 +350,7 @@ def results_list_cmd(
         return
 
     table = Table(title=f"Opportunities ({len(results)} shown)", show_lines=True)
-    table.add_column("ID", style="dim", width=10)
+    table.add_column("ID", style="dim", no_wrap=False)
     table.add_column("Company", style="bold cyan")
     table.add_column("Title", style="bold")
     table.add_column("Location")
@@ -360,7 +360,7 @@ def results_list_cmd(
     for o in results:
         status_color = "green" if o.admission_class == "VERIFIED" else ("yellow" if o.admission_class == "NEEDS INVESTIGATION" else "dim")
         table.add_row(
-            o.id[:8] + "...",
+            o.id,
             o.company_name,
             o.title,
             o.location_raw or "Not disclosed",

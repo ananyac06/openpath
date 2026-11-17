@@ -253,7 +253,8 @@ class Repository:
                     (opp.id, src_id),
                 )
 
-            # 3. Evidence Records
+            # 3. Evidence Records (replace prior records on re-crawl)
+            conn.execute("DELETE FROM evidence_records WHERE opportunity_id = ?;", (opp.id,))
             for ev in opp.evidence:
                 conn.execute(
                     """
@@ -291,7 +292,8 @@ class Repository:
                     ),
                 )
 
-            # 4. Verification Checks
+            # 4. Verification Checks (replace prior checks on re-crawl)
+            conn.execute("DELETE FROM verification_checks WHERE opportunity_id = ?;", (opp.id,))
             for chk in opp.checks:
                 conn.execute(
                     """
@@ -392,19 +394,22 @@ class Repository:
                 SELECT o.*, COALESCE(org.canonical_name, 'Unknown Organization') AS company_name
                 FROM opportunities o
                 LEFT JOIN organisations org ON o.organization_id = org.id
-                WHERE o.id = ?;
+                WHERE o.id = ? OR o.id LIKE ? || '%'
+                ORDER BY CASE WHEN o.id = ? THEN 0 ELSE 1 END
+                LIMIT 1;
                 """,
-                (opp_id,),
+                (opp_id, opp_id, opp_id),
             ).fetchone()
             if not row:
                 return None
 
+            canonical_id = row["id"]
             locs = json.loads(row["locations_json"] or "[]")
             skls = json.loads(row["skills_json"] or "[]")
 
             # Fetch evidence
             ev_rows = conn.execute(
-                "SELECT * FROM evidence_records WHERE opportunity_id = ?;", (opp_id,)
+                "SELECT * FROM evidence_records WHERE opportunity_id = ?;", (canonical_id,)
             ).fetchall()
             evidence_list: list[EvidenceRecord] = []
             for er in ev_rows:
@@ -430,7 +435,7 @@ class Repository:
 
             # Fetch verification checks
             chk_rows = conn.execute(
-                "SELECT * FROM verification_checks WHERE opportunity_id = ?;", (opp_id,)
+                "SELECT * FROM verification_checks WHERE opportunity_id = ?;", (canonical_id,)
             ).fetchall()
             checks_list: list[VerificationCheck] = []
             for cr in chk_rows:
