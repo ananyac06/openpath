@@ -1,6 +1,6 @@
 [project]
 name = "openpath"
-version = "0.1.0"
+version = "1.1.0"
 description = "Local-first, TUI-first, evidence-driven opportunity research engine for India."
 readme = "README.md"
 requires-python = ">=3.13"
