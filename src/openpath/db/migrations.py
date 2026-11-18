@@ -417,9 +417,52 @@ INSERT OR IGNORE INTO sources (id, connector_id, name, category, base_url, autho
      '{"board_token": "posthog", "company_name": "PostHog", "website_url": "https://posthog.com", "region": "global"}');
 """
 
+MIGRATION_3_SQL = """
+-- Migration 3: Seed authoritative global tech giants, S&P 500, and developer platforms
+INSERT OR IGNORE INTO organisations (id, canonical_name, website_url, verification_status) VALUES
+    ('org_canonical', 'Canonical', 'https://canonical.com', 'PASS'),
+    ('org_cloudflare', 'Cloudflare', 'https://cloudflare.com', 'PASS'),
+    ('org_mongodb', 'MongoDB', 'https://mongodb.com', 'PASS'),
+    ('org_elastic', 'Elastic', 'https://elastic.co', 'PASS'),
+    ('org_mozilla', 'Mozilla', 'https://mozilla.org', 'PASS'),
+    ('org_supabase', 'Supabase', 'https://supabase.com', 'PASS');
+
+INSERT OR IGNORE INTO sources (id, connector_id, name, category, base_url, authority_tier, access_method, policy_url, enabled, metadata_json) VALUES
+    ('ats.greenhouse.canonical', 'ats.greenhouse', 'Canonical', 'ats',
+     'https://boards-api.greenhouse.io/v1/boards/canonical/jobs?content=true',
+     'ats', 'public_api', 'https://docs.greenhouse.io/job-board.html', 1,
+     '{"board_token": "canonical", "company_name": "Canonical", "website_url": "https://canonical.com", "ticker": "Ubuntu / Linux Leader", "region": "global"}'),
+
+    ('ats.greenhouse.cloudflare', 'ats.greenhouse', 'Cloudflare', 'ats',
+     'https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs?content=true',
+     'ats', 'public_api', 'https://docs.greenhouse.io/job-board.html', 1,
+     '{"board_token": "cloudflare", "company_name": "Cloudflare", "website_url": "https://cloudflare.com", "ticker": "NYSE: NET • S&P 500", "region": "global"}'),
+
+    ('ats.greenhouse.mongodb', 'ats.greenhouse', 'MongoDB', 'ats',
+     'https://boards-api.greenhouse.io/v1/boards/mongodb/jobs?content=true',
+     'ats', 'public_api', 'https://docs.greenhouse.io/job-board.html', 1,
+     '{"board_token": "mongodb", "company_name": "MongoDB", "website_url": "https://mongodb.com", "ticker": "NASDAQ: MDB", "region": "global"}'),
+
+    ('ats.greenhouse.elastic', 'ats.greenhouse', 'Elastic', 'ats',
+     'https://boards-api.greenhouse.io/v1/boards/elastic/jobs?content=true',
+     'ats', 'public_api', 'https://docs.greenhouse.io/job-board.html', 1,
+     '{"board_token": "elastic", "company_name": "Elastic", "website_url": "https://elastic.co", "ticker": "NYSE: ESTC", "region": "global"}'),
+
+    ('ats.greenhouse.mozilla', 'ats.greenhouse', 'Mozilla', 'ats',
+     'https://boards-api.greenhouse.io/v1/boards/mozilla/jobs?content=true',
+     'ats', 'public_api', 'https://docs.greenhouse.io/job-board.html', 1,
+     '{"board_token": "mozilla", "company_name": "Mozilla", "website_url": "https://mozilla.org", "ticker": "Open Source Foundation", "region": "global"}'),
+
+    ('ats.ashby.supabase', 'ats.ashby', 'Supabase', 'ats',
+     'https://api.ashbyhq.com/posting-api/job-board/supabase',
+     'ats', 'public_api', 'https://developers.ashbyhq.com/docs/public-job-posting-api', 1,
+     '{"board_token": "supabase", "company_name": "Supabase", "website_url": "https://supabase.com", "ticker": "Y-Combinator Tech Unicorn", "region": "global"}');
+"""
+
 MIGRATIONS: list[tuple[int, str]] = [
     (1, MIGRATION_1_SQL),
     (2, MIGRATION_2_SQL),
+    (3, MIGRATION_3_SQL),
 ]
 
 

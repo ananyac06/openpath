@@ -29,8 +29,16 @@ def test_ssrf_rejects_localhost_and_internal_hosts() -> None:
             validate_safe_url(forbidden_host)
 
 
-def test_ssrf_allows_public_https_domains() -> None:
-    # Public domain should validate without raising
+def test_ssrf_allows_public_https_domains(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Mock DNS resolution to public IP so unit tests run hermetically offline
+    import socket
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda host, port, **kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ],
+    )
     validate_safe_url("https://boards-api.greenhouse.io/v1/boards/groww/jobs")
     validate_safe_url("https://api.lever.co/v0/postings/meesho")
     validate_safe_url("https://api.ashbyhq.com/posting-api/job-board/posthog")

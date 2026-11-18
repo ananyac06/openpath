@@ -95,34 +95,69 @@ class Config(BaseModel):
             ) from err
 
     @staticmethod
+    def _check_writable_dir(target: Path, sub: str) -> Path:
+        """Verify target directory is writable; fallback to workspace .openpath if read-only."""
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            probe = target / ".probe"
+            probe.touch()
+            probe.unlink()
+            return target
+        except (OSError, PermissionError):
+            fallback = Path.cwd() / ".openpath" / sub
+            fallback.mkdir(parents=True, exist_ok=True)
+            return fallback
+
+    @staticmethod
     def get_default_config_dir() -> Path:
         env_val = os.environ.get("OPENPATH_CONFIG_DIR")
         if env_val:
             return Path(env_val).expanduser().resolve()
+        ws_openpath = Path.cwd() / ".openpath"
+        if ws_openpath.exists():
+            d = ws_openpath / "config"
+            d.mkdir(parents=True, exist_ok=True)
+            return d
         xdg_config = os.environ.get("XDG_CONFIG_HOME")
         if xdg_config:
-            return Path(xdg_config).expanduser().resolve() / "openpath"
-        return Path.home() / ".config" / "openpath"
+            candidate = Path(xdg_config).expanduser().resolve() / "openpath"
+        else:
+            candidate = Path.home() / ".config" / "openpath"
+        return Config._check_writable_dir(candidate, "config")
 
     @staticmethod
     def get_default_data_dir() -> Path:
         env_val = os.environ.get("OPENPATH_DATA_DIR")
         if env_val:
             return Path(env_val).expanduser().resolve()
+        ws_openpath = Path.cwd() / ".openpath"
+        if ws_openpath.exists():
+            d = ws_openpath / "data"
+            d.mkdir(parents=True, exist_ok=True)
+            return d
         xdg_data = os.environ.get("XDG_DATA_HOME")
         if xdg_data:
-            return Path(xdg_data).expanduser().resolve() / "openpath"
-        return Path.home() / ".local" / "share" / "openpath"
+            candidate = Path(xdg_data).expanduser().resolve() / "openpath"
+        else:
+            candidate = Path.home() / ".local" / "share" / "openpath"
+        return Config._check_writable_dir(candidate, "data")
 
     @staticmethod
     def get_default_state_dir() -> Path:
         env_val = os.environ.get("OPENPATH_STATE_DIR")
         if env_val:
             return Path(env_val).expanduser().resolve()
+        ws_openpath = Path.cwd() / ".openpath"
+        if ws_openpath.exists():
+            d = ws_openpath / "state"
+            d.mkdir(parents=True, exist_ok=True)
+            return d
         xdg_state = os.environ.get("XDG_STATE_HOME")
         if xdg_state:
-            return Path(xdg_state).expanduser().resolve() / "openpath"
-        return Path.home() / ".local" / "state" / "openpath"
+            candidate = Path(xdg_state).expanduser().resolve() / "openpath"
+        else:
+            candidate = Path.home() / ".local" / "state" / "openpath"
+        return Config._check_writable_dir(candidate, "state")
 
     @staticmethod
     def get_default_db_path() -> Path:

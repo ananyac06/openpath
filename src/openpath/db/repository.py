@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from typing import Any
 
 from openpath.db.connection import DatabaseManager
@@ -159,170 +160,182 @@ class Repository:
     # Opportunities & Evidence
     # ---------------------------------------------------------
 
-    def save_opportunity(self, opp: Opportunity) -> None:
-        """Save canonical opportunity along with associated sources, evidence, and verification checks."""
-        with self.db.transaction() as conn:
-            # 0. Ensure organization exists
-            org_id = opp.organization_id
-            if not org_id and opp.company_name:
-                row = conn.execute("SELECT id FROM organisations WHERE canonical_name = ?;", (opp.company_name,)).fetchone()
-                if row:
-                    org_id = row[0]
-                else:
-                    import hashlib
-                    org_id = f"org_{hashlib.md5(opp.company_name.lower().encode()).hexdigest()[:8]}"
-                    conn.execute(
-                        "INSERT OR IGNORE INTO organisations (id, canonical_name, verification_status) VALUES (?, ?, 'PASS');",
-                        (org_id, opp.company_name),
-                    )
-            opp.organization_id = org_id
+    def _save_opportunity_in_tx(self, conn: sqlite3.Connection, opp: Opportunity) -> None:
+        """Internal helper to save an opportunity within an existing active transaction."""
+        # 0. Ensure organization exists
+        org_id = opp.organization_id
+        if not org_id and opp.company_name:
+            row = conn.execute("SELECT id FROM organisations WHERE canonical_name = ?;", (opp.company_name,)).fetchone()
+            if row:
+                org_id = row[0]
+            else:
+                import hashlib
+                org_id = f"org_{hashlib.md5(opp.company_name.lower().encode()).hexdigest()[:8]}"
+                conn.execute(
+                    "INSERT OR IGNORE INTO organisations (id, canonical_name, verification_status) VALUES (?, ?, 'PASS');",
+                    (org_id, opp.company_name),
+                )
+        opp.organization_id = org_id
 
-            # 1. Opportunities table
+        # 1. Opportunities table
+        conn.execute(
+            """
+            INSERT INTO opportunities (
+                id, organization_id, title, normalized_title, opportunity_type,
+                employment_type, work_mode, locations_json, description_text, skills_json,
+                compensation_text, compensation_min, compensation_max, currency,
+                deadline, published_at, first_seen_at, last_seen_at, status,
+                admission_class, canonical_application_url, content_hash, created_at, updated_at
+            ) VALUES (
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?
+            )
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                normalized_title = excluded.normalized_title,
+                opportunity_type = excluded.opportunity_type,
+                employment_type = excluded.employment_type,
+                work_mode = excluded.work_mode,
+                locations_json = excluded.locations_json,
+                description_text = excluded.description_text,
+                skills_json = excluded.skills_json,
+                compensation_text = excluded.compensation_text,
+                compensation_min = excluded.compensation_min,
+                compensation_max = excluded.compensation_max,
+                currency = excluded.currency,
+                deadline = excluded.deadline,
+                published_at = excluded.published_at,
+                last_seen_at = excluded.last_seen_at,
+                status = excluded.status,
+                admission_class = excluded.admission_class,
+                canonical_application_url = excluded.canonical_application_url,
+                content_hash = excluded.content_hash,
+                updated_at = excluded.updated_at;
+            """,
+            (
+                opp.id,
+                opp.organization_id,
+                opp.title,
+                opp.normalized_title,
+                opp.opportunity_type,
+                opp.employment_type,
+                opp.work_mode.value if opp.work_mode else None,
+                json.dumps(opp.locations),
+                opp.description_text,
+                json.dumps(opp.skills),
+                opp.compensation_text,
+                opp.compensation_min,
+                opp.compensation_max,
+                opp.currency,
+                opp.deadline,
+                opp.published_at,
+                opp.first_seen_at.isoformat(),
+                opp.last_seen_at.isoformat(),
+                opp.status,
+                opp.admission_class,
+                opp.canonical_application_url,
+                opp.content_hash,
+                opp.created_at.isoformat(),
+                opp.updated_at.isoformat(),
+            ),
+        )
+
+        # 2. Opportunity Sources
+        for src_id in opp.source_ids:
             conn.execute(
                 """
-                INSERT INTO opportunities (
-                    id, organization_id, title, normalized_title, opportunity_type,
-                    employment_type, work_mode, locations_json, description_text, skills_json,
-                    compensation_text, compensation_min, compensation_max, currency,
-                    deadline, published_at, first_seen_at, last_seen_at, status,
-                    admission_class, canonical_application_url, content_hash, created_at, updated_at
+                INSERT OR IGNORE INTO opportunity_sources (opportunity_id, source_id)
+                VALUES (?, ?);
+                """,
+                (opp.id, src_id),
+            )
+
+        # 3. Evidence Records (replace prior records on re-crawl)
+        conn.execute("DELETE FROM evidence_records WHERE opportunity_id = ?;", (opp.id,))
+        for ev in opp.evidence:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO evidence_records (
+                    id, source_id, organization_id, opportunity_id, resource_id, evidence_type,
+                    claim, original_url, canonical_url, retrieved_at, last_verified_at,
+                    http_status, excerpt, document_page, content_hash, extraction_method,
+                    retention_policy, metadata_json
                 ) VALUES (
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?
-                )
-                ON CONFLICT(id) DO UPDATE SET
-                    title = excluded.title,
-                    normalized_title = excluded.normalized_title,
-                    opportunity_type = excluded.opportunity_type,
-                    employment_type = excluded.employment_type,
-                    work_mode = excluded.work_mode,
-                    locations_json = excluded.locations_json,
-                    description_text = excluded.description_text,
-                    skills_json = excluded.skills_json,
-                    compensation_text = excluded.compensation_text,
-                    compensation_min = excluded.compensation_min,
-                    compensation_max = excluded.compensation_max,
-                    currency = excluded.currency,
-                    deadline = excluded.deadline,
-                    published_at = excluded.published_at,
-                    last_seen_at = excluded.last_seen_at,
-                    status = excluded.status,
-                    admission_class = excluded.admission_class,
-                    canonical_application_url = excluded.canonical_application_url,
-                    content_hash = excluded.content_hash,
-                    updated_at = excluded.updated_at;
+                    ?, ?
+                );
                 """,
                 (
+                    ev.id,
+                    opp.source_ids[0] if opp.source_ids else None,
+                    ev.organization_id,
                     opp.id,
-                    opp.organization_id,
-                    opp.title,
-                    opp.normalized_title,
-                    opp.opportunity_type,
-                    opp.employment_type,
-                    opp.work_mode.value if opp.work_mode else None,
-                    json.dumps(opp.locations),
-                    opp.description_text,
-                    json.dumps(opp.skills),
-                    opp.compensation_text,
-                    opp.compensation_min,
-                    opp.compensation_max,
-                    opp.currency,
-                    opp.deadline,
-                    opp.published_at,
-                    opp.first_seen_at.isoformat(),
-                    opp.last_seen_at.isoformat(),
-                    opp.status,
-                    opp.admission_class,
-                    opp.canonical_application_url,
-                    opp.content_hash,
-                    opp.created_at.isoformat(),
-                    opp.updated_at.isoformat(),
+                    ev.resource_id,
+                    ev.evidence_type,
+                    ev.claim,
+                    ev.original_url,
+                    ev.canonical_url,
+                    ev.retrieved_at.isoformat(),
+                    ev.last_verified_at.isoformat() if ev.last_verified_at else None,
+                    ev.http_status,
+                    ev.excerpt,
+                    ev.document_page,
+                    ev.content_hash,
+                    ev.extraction_method,
+                    ev.retention_policy,
+                    json.dumps(ev.metadata),
                 ),
             )
 
-            # 2. Opportunity Sources
-            for src_id in opp.source_ids:
-                conn.execute(
-                    """
-                    INSERT OR IGNORE INTO opportunity_sources (opportunity_id, source_id)
-                    VALUES (?, ?);
-                    """,
-                    (opp.id, src_id),
-                )
-
-            # 3. Evidence Records (replace prior records on re-crawl)
-            conn.execute("DELETE FROM evidence_records WHERE opportunity_id = ?;", (opp.id,))
-            for ev in opp.evidence:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO evidence_records (
-                        id, source_id, organization_id, opportunity_id, resource_id, evidence_type,
-                        claim, original_url, canonical_url, retrieved_at, last_verified_at,
-                        http_status, excerpt, document_page, content_hash, extraction_method,
-                        retention_policy, metadata_json
-                    ) VALUES (
-                        ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?,
-                        ?, ?
-                    );
-                    """,
-                    (
-                        ev.id,
-                        opp.source_ids[0] if opp.source_ids else None,
-                        ev.organization_id,
-                        opp.id,
-                        ev.resource_id,
-                        ev.evidence_type,
-                        ev.claim,
-                        ev.original_url,
-                        ev.canonical_url,
-                        ev.retrieved_at.isoformat(),
-                        ev.last_verified_at.isoformat() if ev.last_verified_at else None,
-                        ev.http_status,
-                        ev.excerpt,
-                        ev.document_page,
-                        ev.content_hash,
-                        ev.extraction_method,
-                        ev.retention_policy,
-                        json.dumps(ev.metadata),
-                    ),
-                )
-
-            # 4. Verification Checks (replace prior checks on re-crawl)
-            conn.execute("DELETE FROM verification_checks WHERE opportunity_id = ?;", (opp.id,))
-            for chk in opp.checks:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO verification_checks (
-                        id, opportunity_id, organization_id, check_name, result,
-                        explanation, evidence_id, checked_at, checker_version
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-                    """,
-                    (
-                        chk.id,
-                        opp.id,
-                        chk.organization_id,
-                        chk.check_name,
-                        chk.result.value,
-                        chk.explanation,
-                        chk.evidence_id,
-                        chk.checked_at.isoformat(),
-                        chk.checker_version,
-                    ),
-                )
-
-            # 5. Full text index update
+        # 4. Verification Checks (replace prior checks on re-crawl)
+        conn.execute("DELETE FROM verification_checks WHERE opportunity_id = ?;", (opp.id,))
+        for chk in opp.checks:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO opportunity_fts (opportunity_id, title, description_text, skills)
-                VALUES (?, ?, ?, ?);
+                INSERT OR REPLACE INTO verification_checks (
+                    id, opportunity_id, organization_id, check_name, result,
+                    explanation, evidence_id, checked_at, checker_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
-                (opp.id, opp.title, opp.description_text or "", ""),
+                (
+                    chk.id,
+                    opp.id,
+                    chk.organization_id,
+                    chk.check_name,
+                    chk.result.value,
+                    chk.explanation,
+                    chk.evidence_id,
+                    chk.checked_at.isoformat(),
+                    chk.checker_version,
+                ),
             )
+
+        # 5. Full text index update
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO opportunity_fts (opportunity_id, title, description_text, skills)
+            VALUES (?, ?, ?, ?);
+            """,
+            (opp.id, opp.title, opp.description_text or "", ""),
+        )
+
+    def save_opportunity(self, opp: Opportunity) -> None:
+        """Save canonical opportunity along with associated sources, evidence, and verification checks."""
+        with self.db.transaction() as conn:
+            self._save_opportunity_in_tx(conn, opp)
+
+    def save_opportunities(self, opps: list[Opportunity]) -> None:
+        """Batch save canonical opportunities in a single atomic transaction for high performance."""
+        if not opps:
+            return
+        with self.db.transaction() as conn:
+            for opp in opps:
+                self._save_opportunity_in_tx(conn, opp)
 
     def list_opportunities(
         self,

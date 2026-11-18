@@ -14,5 +14,6 @@ build/
 *.db
 *.db-wal
 *.db-shm
+.openpath/
 .deep-memory/
 .opencode/

@@ -90,7 +90,7 @@ class ResearchOrchestrator:
                         total_extracted += 1
                         if opp.admission_class == "VERIFIED":
                             total_verified += 1
-                        self.repo.save_opportunity(opp)
+                    self.repo.save_opportunities(opps)
 
                     self.repo.record_source_access(
                         source.id, "success", detail=f"Extracted {len(opps)} opportunities", run_id=run_id
