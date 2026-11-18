@@ -141,13 +141,19 @@ class OpenPathApp(App[None]):
         with Horizontal():
             with Vertical():
                 with Horizontal():
-                    yield Input(placeholder="Search opportunities (title, skills, company)...", id="results_search_input")
+                    yield Input(
+                        placeholder="Search opportunities (title, skills, company)...",
+                        id="results_search_input",
+                    )
                     yield Button("Filter: All", id="btn_filter_status", variant="primary")
                     yield Button("Refresh", id="btn_refresh_results")
                 yield DataTable(id="results_table")
             with VerticalScroll(id="detail_pane"):
                 yield Label("[bold cyan]Opportunity Details[/bold cyan]")
-                yield Markdown("*Select an opportunity from the table to inspect evidence.*", id="result_detail_markdown")
+                yield Markdown(
+                    "*Select an opportunity from the table to inspect evidence.*",
+                    id="result_detail_markdown",
+                )
 
     def _compose_sources(self) -> ComposeResult:
         with Vertical():
@@ -160,7 +166,9 @@ class OpenPathApp(App[None]):
         with VerticalScroll():
             with Container(classes="panel"):
                 yield Label("[bold cyan]Live Research & Crawler Monitor[/bold cyan]")
-                yield Static("Crawler status: [bold green]IDLE[/bold green]", id="monitor_status_text")
+                yield Static(
+                    "Crawler status: [bold green]IDLE[/bold green]", id="monitor_status_text"
+                )
             with Horizontal():
                 with Container(classes="metric-box"):
                     yield Label("Requests Attempted", classes="metric-title")
@@ -206,7 +214,9 @@ class OpenPathApp(App[None]):
     def _compose_export(self) -> ComposeResult:
         with VerticalScroll(), Container(classes="panel"):
             yield Label("[bold cyan]Export Research Records[/bold cyan]")
-            yield Static("Export verified opportunities with full evidence trails to JSON or Markdown formats.")
+            yield Static(
+                "Export verified opportunities with full evidence trails to JSON or Markdown formats."
+            )
             with Horizontal():
                 yield Button("Export to JSON", id="btn_export_json", variant="primary")
                 yield Button("Export to Markdown", id="btn_export_md")
@@ -321,7 +331,11 @@ class OpenPathApp(App[None]):
             diag_table.add_row(item.category, item.name, item.status, item.message)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn_refresh_results" or event.button.id == "btn_refresh_sources" or event.button.id == "btn_refresh_profiles":
+        if (
+            event.button.id == "btn_refresh_results"
+            or event.button.id == "btn_refresh_sources"
+            or event.button.id == "btn_refresh_profiles"
+        ):
             self.refresh_all_data()
         elif event.button.id == "btn_run_diagnostics":
             self.run_diagnostics_refresh()
@@ -359,7 +373,9 @@ class OpenPathApp(App[None]):
                     md_text += f"**Admission:** `{full_opp.admission_class}` | **Status:** `{full_opp.status}`\n\n"
                     md_text += "#### Verification Checks\n"
                     for chk in full_opp.checks:
-                        md_text += f"- **{chk.check_name}:** `{chk.result.value}` — {chk.explanation}\n"
+                        md_text += (
+                            f"- **{chk.check_name}:** `{chk.result.value}` — {chk.explanation}\n"
+                        )
                     self.query_one("#result_detail_markdown", Markdown).update(md_text)
 
 

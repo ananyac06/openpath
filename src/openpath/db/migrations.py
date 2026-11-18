@@ -459,17 +459,64 @@ INSERT OR IGNORE INTO sources (id, connector_id, name, category, base_url, autho
      '{"board_token": "supabase", "company_name": "Supabase", "website_url": "https://supabase.com", "ticker": "Y-Combinator Tech Unicorn", "region": "global"}');
 """
 
+
+def _build_migration_4_sql() -> str:
+    """Generate SQL for Migration 4: add category column and seed 1,100+ verified organizations."""
+    from openpath.data.verified_directory import VERIFIED_ORGANIZATIONS
+
+    def esc(val: str | None) -> str:
+        if val is None:
+            return "NULL"
+        return "'" + str(val).replace("'", "''") + "'"
+
+    lines = [
+        "-- Migration 4: Schema expansion and authoritative verified organizations directory",
+        "ALTER TABLE organisations ADD COLUMN category TEXT;",
+        "CREATE INDEX IF NOT EXISTS idx_organisations_category ON organisations(category);",
+        "CREATE INDEX IF NOT EXISTS idx_organisations_verification ON organisations(verification_status);",
+        "-- Enrich existing seeded organizations",
+        "UPDATE organisations SET legal_name = 'Cloudflare, Inc.', country = 'United States', category = 'us_sp500', registry_id = 'NYSE: NET • S&P 500', registry_source = 'SEC EDGAR / NYSE', registry_jurisdiction = 'US-DE' WHERE canonical_name = 'Cloudflare';",
+        "UPDATE organisations SET legal_name = 'MongoDB, Inc.', country = 'United States', category = 'us_sp500', registry_id = 'NASDAQ: MDB', registry_source = 'SEC EDGAR / NASDAQ', registry_jurisdiction = 'US-DE' WHERE canonical_name = 'MongoDB';",
+        "UPDATE organisations SET legal_name = 'Elastic N.V.', country = 'United States', category = 'us_sp500', registry_id = 'NYSE: ESTC', registry_source = 'SEC EDGAR / NYSE', registry_jurisdiction = 'US-DE' WHERE canonical_name = 'Elastic';",
+        "UPDATE organisations SET legal_name = 'Canonical Group Limited', country = 'United Kingdom', category = 'open_source', registry_id = 'UK Companies House: 06870835', registry_source = 'UK Companies House', registry_jurisdiction = 'GB' WHERE canonical_name = 'Canonical';",
+        "UPDATE organisations SET legal_name = 'GitLab Inc.', country = 'United States', category = 'us_sp500', registry_id = 'NASDAQ: GTLB', registry_source = 'SEC EDGAR / NASDAQ', registry_jurisdiction = 'US-DE' WHERE canonical_name = 'GitLab';",
+        "UPDATE organisations SET legal_name = 'Mozilla Corporation / Mozilla Foundation', country = 'United States', category = 'open_source', registry_id = 'IRS 501(c)(3) Nonprofit', registry_source = 'IRS / US Nonprofit', registry_jurisdiction = 'US-CA' WHERE canonical_name = 'Mozilla';",
+        "UPDATE organisations SET legal_name = 'Supabase Inc.', country = 'United States', category = 'tech_unicorn', registry_id = 'YC W20 / Tech Unicorn', registry_source = 'Y-Combinator / US Registry', registry_jurisdiction = 'US-DE' WHERE canonical_name = 'Supabase';",
+        "UPDATE organisations SET legal_name = 'Fashnear Technologies Private Limited', country = 'India', category = 'tech_unicorn', website_url = 'https://meesho.io', registry_id = 'MCA: U74900KA2015PTC082263 / E-Commerce Unicorn', registry_source = 'MCA India', registry_jurisdiction = 'IN-KA' WHERE canonical_name = 'Meesho';",
+        "UPDATE organisations SET legal_name = 'Nextbillion Technology Private Limited', country = 'India', category = 'indian_listed', website_url = 'https://groww.in', registry_id = 'MCA: U65990KA2016PTC092870 / Wealthtech Unicorn', registry_source = 'MCA India', registry_jurisdiction = 'IN-KA' WHERE canonical_name = 'Groww';",
+        "UPDATE organisations SET legal_name = 'Dreamplug Technologies Private Limited', country = 'India', category = 'tech_unicorn', website_url = 'https://cred.club', registry_id = 'MCA: U74999KA2018PTC109559 / Fintech Unicorn', registry_source = 'MCA India', registry_jurisdiction = 'IN-KA' WHERE canonical_name = 'CRED';",
+        "UPDATE organisations SET legal_name = 'PostHog, Inc.', country = 'United States', category = 'tech_unicorn', website_url = 'https://posthog.com', registry_id = 'YC W20 / Open Source Unicorn', registry_source = 'Y-Combinator / US Registry', registry_jurisdiction = 'US-DE' WHERE canonical_name = 'PostHog';",
+    ]
+
+    vals = [
+        f"({esc(o['id'])}, {esc(o['canonical_name'])}, {esc(o['legal_name'])}, {esc(o['country'])}, {esc(o['category'])}, {esc(o['website_url'])}, {esc(o['registry_id'])}, {esc(o['registry_source'])}, {esc(o['registry_jurisdiction'])}, {esc(o['verification_status'])})"
+        for o in VERIFIED_ORGANIZATIONS
+    ]
+    lines.append(
+        "INSERT OR IGNORE INTO organisations (id, canonical_name, legal_name, country, category, website_url, registry_id, registry_source, registry_jurisdiction, verification_status) VALUES\n"
+        + ",\n".join(vals)
+        + ";"
+    )
+
+    return "\n".join(lines)
+
+
+MIGRATION_4_SQL = _build_migration_4_sql()
+
 MIGRATIONS: list[tuple[int, str]] = [
     (1, MIGRATION_1_SQL),
     (2, MIGRATION_2_SQL),
     (3, MIGRATION_3_SQL),
+    (4, MIGRATION_4_SQL),
 ]
 
 
 def get_applied_migrations(conn: sqlite3.Connection) -> set[int]:
     """Retrieve set of already applied migration version numbers."""
     try:
-        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations';")
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations';"
+        )
         if not cur.fetchone():
             return set()
         rows = conn.execute("SELECT version FROM schema_migrations;").fetchall()

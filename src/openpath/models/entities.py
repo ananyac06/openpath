@@ -103,7 +103,9 @@ class CandidateProfile(BaseModel):
         eligibility = json.loads(row.get("eligibility_json") or "{}")
         preferences = json.loads(row.get("preferences_json") or "{}")
         work_modes = [
-            WorkMode(m) for m in preferences.get("work_modes", []) if m in WorkMode._value2member_map_
+            WorkMode(m)
+            for m in preferences.get("work_modes", [])
+            if m in WorkMode._value2member_map_
         ] or [WorkMode.REMOTE, WorkMode.HYBRID, WorkMode.ONSITE]
 
         return cls(

@@ -31,6 +31,7 @@ class LeverConnector(BaseConnector):
         company_slug = source.metadata.get("board_token") or source.metadata.get("company_slug")
         if not company_slug and source.base_url:
             from urllib.parse import urlparse
+
             parts = urlparse(source.base_url).path.strip("/").split("/")
             if "postings" in parts:
                 idx = parts.index("postings")
@@ -66,7 +67,9 @@ class LeverConnector(BaseConnector):
             if not title:
                 continue
 
-            hosted_url = posting.get("hostedUrl") or f"https://jobs.lever.co/{company_slug}/{posting_id}"
+            hosted_url = (
+                posting.get("hostedUrl") or f"https://jobs.lever.co/{company_slug}/{posting_id}"
+            )
             apply_url = posting.get("applyUrl") or hosted_url
             categories = posting.get("categories") or {}
             raw_location = categories.get("location") if isinstance(categories, dict) else None
@@ -87,7 +90,11 @@ class LeverConnector(BaseConnector):
                 excerpt=clean_text[:500] if clean_text else f"Job: {title} at {company_name}",
                 content_hash=fetch_result.content_hash,
                 extraction_method="lever_v0_api",
-                metadata={"posting_id": posting_id, "company_slug": company_slug, "categories": categories},
+                metadata={
+                    "posting_id": posting_id,
+                    "company_slug": company_slug,
+                    "categories": categories,
+                },
             )
 
             checks = [

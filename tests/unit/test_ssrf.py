@@ -32,6 +32,7 @@ def test_ssrf_rejects_localhost_and_internal_hosts() -> None:
 def test_ssrf_allows_public_https_domains(monkeypatch: pytest.MonkeyPatch) -> None:
     # Mock DNS resolution to public IP so unit tests run hermetically offline
     import socket
+
     monkeypatch.setattr(
         socket,
         "getaddrinfo",

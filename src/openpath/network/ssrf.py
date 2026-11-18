@@ -60,7 +60,12 @@ def validate_safe_url(url: str) -> None:
             ip_obj = ipaddress.ip_address(ip_str)
 
             # Check if IP is private, loopback, or reserved
-            if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_reserved or ip_obj.is_link_local:
+            if (
+                ip_obj.is_loopback
+                or ip_obj.is_private
+                or ip_obj.is_reserved
+                or ip_obj.is_link_local
+            ):
                 raise SSRFSecurityViolation(
                     f"Resolved IP '{ip_str}' for host '{hostname}' is in a restricted network.",
                     details={"url": url, "host": hostname, "ip": ip_str},
@@ -70,7 +75,12 @@ def validate_safe_url(url: str) -> None:
                 if ip_obj in blocked_net:
                     raise SSRFSecurityViolation(
                         f"Resolved IP '{ip_str}' falls within blocked subnet '{blocked_net}'.",
-                        details={"url": url, "host": hostname, "ip": ip_str, "network": str(blocked_net)},
+                        details={
+                            "url": url,
+                            "host": hostname,
+                            "ip": ip_str,
+                            "network": str(blocked_net),
+                        },
                     )
     except socket.gaierror as err:
         raise SSRFSecurityViolation(

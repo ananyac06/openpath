@@ -101,3 +101,42 @@ def test_repository_save_and_retrieve_opportunity(tmp_path: Path) -> None:
 
     no_hits = repo.list_opportunities(search_query="nonexistentkeyword")
     assert len(no_hits) == 0
+
+
+def test_repository_verified_organisations_directory(tmp_path: Path) -> None:
+    db_mgr = DatabaseManager(tmp_path / "repo.db")
+    with db_mgr.transaction() as conn:
+        apply_migrations(conn)
+    repo = Repository(db_mgr)
+
+    # 1. Total verified organizations count is at least 1,000
+    total_count = repo.get_organisation_count()
+    assert total_count >= 1000
+
+    # 2. List organizations returns complete metadata
+    all_orgs = repo.list_organisations(limit=50)
+    assert len(all_orgs) == 50
+    first = all_orgs[0]
+    assert "canonical_name" in first
+    assert "legal_name" in first
+    assert "registry_id" in first
+    assert "verification_status" in first
+    assert first["verification_status"] == "PASS"
+
+    # 3. Filter by category
+    sp500 = repo.list_organisations(category="us_sp500", limit=100)
+    assert len(sp500) > 0
+    assert all(o["category"] == "us_sp500" for o in sp500)
+
+    indian_listed = repo.list_organisations(category="indian_listed", limit=100)
+    assert len(indian_listed) > 0
+    assert all(o["category"] == "indian_listed" for o in indian_listed)
+
+    # 4. Search query matching
+    search_nvda = repo.list_organisations(search_query="Nvidia")
+    assert len(search_nvda) >= 1
+    assert any("Nvidia" in o["canonical_name"] for o in search_nvda)
+
+    search_tcs = repo.list_organisations(search_query="Tata Consultancy")
+    assert len(search_tcs) >= 1
+    assert any("Tata Consultancy" in o["canonical_name"] for o in search_tcs)

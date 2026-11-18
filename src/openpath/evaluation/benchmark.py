@@ -40,7 +40,11 @@ class BenchmarkRunner:
         self.repo = Repository(self.db_mgr)
 
     def load_reference_dataset(self) -> dict[str, Any]:
-        ref_file = Path(__file__).resolve().parent.parent.parent.parent / "data" / "benchmark_100_orgs.json"
+        ref_file = (
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "data"
+            / "benchmark_100_orgs.json"
+        )
         if not ref_file.is_file():
             # Fallback path if installed as package
             ref_file = Path("data/benchmark_100_orgs.json")
@@ -67,10 +71,16 @@ class BenchmarkRunner:
         valid_verified = 0
         for vo in verified_opps:
             full_opp = self.repo.get_opportunity(vo.id)
-            if full_opp and full_opp.evidence and all(c.result.value == "PASS" for c in full_opp.checks):
+            if (
+                full_opp
+                and full_opp.evidence
+                and all(c.result.value == "PASS" for c in full_opp.checks)
+            ):
                 valid_verified += 1
 
-        verified_precision_pct = (valid_verified / len(verified_opps) * 100.0) if verified_opps else 100.0
+        verified_precision_pct = (
+            (valid_verified / len(verified_opps) * 100.0) if verified_opps else 100.0
+        )
 
         # 2. Evidence Completeness: percentage of verified opps with verbatim excerpt & content hash
         complete_evidence_count = 0
@@ -78,16 +88,24 @@ class BenchmarkRunner:
             full_opp = self.repo.get_opportunity(vo.id)
             if full_opp and all(e.content_hash and e.original_url for e in full_opp.evidence):
                 complete_evidence_count += 1
-        evidence_completeness_pct = (complete_evidence_count / len(verified_opps) * 100.0) if verified_opps else 100.0
+        evidence_completeness_pct = (
+            (complete_evidence_count / len(verified_opps) * 100.0) if verified_opps else 100.0
+        )
 
         # Duplicate Survival Rate (percentage of identical URLs appearing more than once)
         url_counts: dict[str, int] = {}
         for o in opps:
-            url_counts[o.canonical_application_url] = url_counts.get(o.canonical_application_url, 0) + 1
+            url_counts[o.canonical_application_url] = (
+                url_counts.get(o.canonical_application_url, 0) + 1
+            )
         duplicate_urls = sum(1 for count in url_counts.values() if count > 1)
         duplicate_survival_pct = (duplicate_urls / len(opps) * 100.0) if opps else 0.0
 
-        overall_score = "TARGET ACHIEVED (PASS)" if verified_precision_pct >= 98.0 and evidence_completeness_pct == 100.0 else "IMPROVEMENT NEEDED"
+        overall_score = (
+            "TARGET ACHIEVED (PASS)"
+            if verified_precision_pct >= 98.0 and evidence_completeness_pct == 100.0
+            else "IMPROVEMENT NEEDED"
+        )
 
         return BenchmarkScorecard(
             timestamp=datetime.now(UTC).isoformat(),

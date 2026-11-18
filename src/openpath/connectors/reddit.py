@@ -28,12 +28,15 @@ class RedditConnector(BaseConnector):
         subreddit = source.metadata.get("subreddit") or "developersIndia"
         query = source.metadata.get("query") or "hiring OR internship OR fresher"
         from urllib.parse import quote_plus
+
         api_url = f"https://www.reddit.com/r/{subreddit}/search.json?q={quote_plus(query)}&restrict_sr=1&sort=new&limit=10"
 
         logger.info("Querying Reddit for r/%s: %s", subreddit, api_url)
         fetch_result = await self.http_client.fetch(api_url)
         if fetch_result.status_code != 200:
-            logger.warning("Reddit API returned status %d for %s", fetch_result.status_code, api_url)
+            logger.warning(
+                "Reddit API returned status %d for %s", fetch_result.status_code, api_url
+            )
             return []
 
         try:
@@ -83,6 +86,7 @@ class RedditConnector(BaseConnector):
             ]
 
             import hashlib
+
             stable_id = f"rd_{hashlib.md5(full_url.encode()).hexdigest()[:12]}"
 
             opp = Opportunity(

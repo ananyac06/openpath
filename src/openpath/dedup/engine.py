@@ -19,13 +19,18 @@ def normalize_url_for_dedup(url: str) -> str:
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
     clean_params = {
-        k: v for k, v in query_params.items()
-        if not (k.startswith("utm_") or k in ("ref", "source", "gh_src", "lever-source", "tracking"))
+        k: v
+        for k, v in query_params.items()
+        if not (
+            k.startswith("utm_") or k in ("ref", "source", "gh_src", "lever-source", "tracking")
+        )
     }
     clean_query = urlencode(clean_params, doseq=True)
     # Remove trailing slash
     clean_path = parsed.path.rstrip("/")
-    return urlunparse((parsed.scheme.lower(), parsed.netloc.lower(), clean_path, parsed.params, clean_query, ""))
+    return urlunparse(
+        (parsed.scheme.lower(), parsed.netloc.lower(), clean_path, parsed.params, clean_query, "")
+    )
 
 
 def string_similarity(a: str, b: str) -> float:
@@ -34,7 +39,9 @@ def string_similarity(a: str, b: str) -> float:
 
 
 class DuplicateMatch:
-    def __init__(self, canonical_id: str, duplicate_id: str, score: float, signals: dict[str, str]) -> None:
+    def __init__(
+        self, canonical_id: str, duplicate_id: str, score: float, signals: dict[str, str]
+    ) -> None:
         self.canonical_id = canonical_id
         self.duplicate_id = duplicate_id
         self.score = score
@@ -47,7 +54,9 @@ class DeduplicationEngine:
     def __init__(self, db: DatabaseManager) -> None:
         self.db = db
 
-    def find_duplicate(self, candidate: Opportunity, existing: list[Opportunity]) -> DuplicateMatch | None:
+    def find_duplicate(
+        self, candidate: Opportunity, existing: list[Opportunity]
+    ) -> DuplicateMatch | None:
         """Evaluate candidate against a list of existing opportunities for a duplicate match."""
         cand_norm_url = normalize_url_for_dedup(candidate.canonical_application_url)
 

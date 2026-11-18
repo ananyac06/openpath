@@ -64,7 +64,18 @@ def test_cli_profiles_add_and_list(tmp_path: Path, monkeypatch) -> None:
 
     add_res = runner.invoke(
         app,
-        ["profiles", "add", "--name", "Test Candidate", "--degree", "B.Tech", "--year", "3", "--skills", "Python,Docker"],
+        [
+            "profiles",
+            "add",
+            "--name",
+            "Test Candidate",
+            "--degree",
+            "B.Tech",
+            "--year",
+            "3",
+            "--skills",
+            "Python,Docker",
+        ],
     )
     assert add_res.exit_code == 0
     assert "successfully created" in add_res.stdout

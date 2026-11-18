@@ -24,7 +24,9 @@ def test_crawl_frontier_lifecycle(tmp_path: Path) -> None:
 
     # Enqueue tasks
     task1 = frontier.enqueue_task(run_id, "https://example.com/jobs", task_type="seed", depth=0)
-    task2 = frontier.enqueue_task(run_id, "https://example.com/jobs/1", task_type="job_detail", depth=1)
+    task2 = frontier.enqueue_task(
+        run_id, "https://example.com/jobs/1", task_type="job_detail", depth=1
+    )
 
     # First task popped should be depth 0
     next_task = frontier.get_next_queued_task(run_id)

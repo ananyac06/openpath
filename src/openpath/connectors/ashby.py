@@ -32,6 +32,7 @@ class AshbyConnector(BaseConnector):
         board_slug = source.metadata.get("board_token") or source.metadata.get("board_slug")
         if not board_slug and source.base_url:
             from urllib.parse import urlparse
+
             parts = urlparse(source.base_url).path.strip("/").split("/")
             if "job-board" in parts:
                 idx = parts.index("job-board")
@@ -41,7 +42,9 @@ class AshbyConnector(BaseConnector):
         if not board_slug:
             raise ConnectorError(f"Missing board_slug for Ashby source {source.id}")
 
-        api_url = f"https://api.ashbyhq.com/posting-api/job-board/{board_slug}?includeCompensation=true"
+        api_url = (
+            f"https://api.ashbyhq.com/posting-api/job-board/{board_slug}?includeCompensation=true"
+        )
         logger.info("Fetching Ashby postings for '%s' from %s", board_slug, api_url)
 
         fetch_result = await self.http_client.fetch(api_url)
@@ -132,7 +135,10 @@ class AshbyConnector(BaseConnector):
 
             # Use hash of title + job_url for stable ID
             import hashlib
-            stable_id = f"ab_{board_slug}_{hashlib.md5(f'{title}_{job_url}'.encode()).hexdigest()[:10]}"
+
+            stable_id = (
+                f"ab_{board_slug}_{hashlib.md5(f'{title}_{job_url}'.encode()).hexdigest()[:10]}"
+            )
 
             opp = Opportunity(
                 id=stable_id,

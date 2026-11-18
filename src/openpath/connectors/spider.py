@@ -53,20 +53,20 @@ def detect_ats_links(page_html: str) -> list[DiscoveredATSBoard]:
 
     for match in GREENHOUSE_REGEX.finditer(page_html):
         token = match.group(1).lower()
-        if ( "greenhouse", token ) not in seen and token not in ("embed", "v1", "job"):
-            seen.add(( "greenhouse", token ))
+        if ("greenhouse", token) not in seen and token not in ("embed", "v1", "job"):
+            seen.add(("greenhouse", token))
             discovered.append(DiscoveredATSBoard("greenhouse", token, match.group(0)))
 
     for match in LEVER_REGEX.finditer(page_html):
         token = match.group(1).lower()
-        if ( "lever", token ) not in seen and token not in ("apply", "embed"):
-            seen.add(( "lever", token ))
+        if ("lever", token) not in seen and token not in ("apply", "embed"):
+            seen.add(("lever", token))
             discovered.append(DiscoveredATSBoard("lever", token, match.group(0)))
 
     for match in ASHBY_REGEX.finditer(page_html):
         token = match.group(1).lower()
-        if ( "ashby", token ) not in seen and token not in ("api", "apply"):
-            seen.add(( "ashby", token ))
+        if ("ashby", token) not in seen and token not in ("api", "apply"):
+            seen.add(("ashby", token))
             discovered.append(DiscoveredATSBoard("ashby", token, match.group(0)))
 
     return discovered
@@ -82,7 +82,9 @@ class CareerPageSpider(BaseConnector):
         logger.info("Crawling career page for %s: %s", source.name, source.base_url)
         fetch_res = await self.http_client.fetch(source.base_url)
         if fetch_res.status_code != 200:
-            logger.warning("Career page %s returned status %d", source.base_url, fetch_res.status_code)
+            logger.warning(
+                "Career page %s returned status %d", source.base_url, fetch_res.status_code
+            )
             return []
 
         page_html = fetch_res.text
@@ -110,7 +112,9 @@ class CareerPageSpider(BaseConnector):
                     items = data if isinstance(data, list) else [data]
                     for item in items:
                         if item.get("@type") == "JobPosting":
-                            opp = self._parse_json_ld_job(item, source, fetch_res.url, fetch_res.content_hash)
+                            opp = self._parse_json_ld_job(
+                                item, source, fetch_res.url, fetch_res.content_hash
+                            )
                             if opp:
                                 opportunities.append(opp)
                 except Exception:
@@ -152,6 +156,7 @@ class CareerPageSpider(BaseConnector):
         company_name = company_info.get("name") if isinstance(company_info, dict) else source.name
 
         import uuid
+
         ev_id = str(uuid.uuid4())
         evidence = EvidenceRecord(
             id=ev_id,
@@ -183,6 +188,7 @@ class CareerPageSpider(BaseConnector):
         admission_class = "VERIFIED" if india_eligible is not False else "REJECTED"
 
         import hashlib
+
         stable_id = f"ld_{hashlib.md5(f'{clean_title}_{job_url}'.encode()).hexdigest()[:12]}"
 
         return Opportunity(

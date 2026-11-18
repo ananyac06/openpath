@@ -10,7 +10,9 @@ from openpath.models.entities import Opportunity, WorkMode
 
 
 def test_url_normalization_strips_tracking() -> None:
-    raw_url = "https://jobs.lever.co/company/abc-123/?utm_source=linkedin&ref=jobboard&utm_medium=cpc"
+    raw_url = (
+        "https://jobs.lever.co/company/abc-123/?utm_source=linkedin&ref=jobboard&utm_medium=cpc"
+    )
     normalized = normalize_url_for_dedup(raw_url)
     assert normalized == "https://jobs.lever.co/company/abc-123"
 

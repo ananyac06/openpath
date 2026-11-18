@@ -50,7 +50,9 @@ console = Console()
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    version: Annotated[bool, typer.Option("--version", "-v", help="Show OpenPath version.")] = False,
+    version: Annotated[
+        bool, typer.Option("--version", "-v", help="Show OpenPath version.")
+    ] = False,
 ) -> None:
     """OpenPath main entry point. Launches the interactive Textual TUI when called without subcommands."""
     if version:
@@ -122,9 +124,15 @@ def doctor_cmd() -> None:
         )
         raise typer.Exit(code=1)
 
+
 @app.command("serve")
 def serve_cmd(
-    host: Annotated[str, typer.Option("--host", "-h", help="Host interface to bind (strictly 127.0.0.1 or localhost).")] = "127.0.0.1",
+    host: Annotated[
+        str,
+        typer.Option(
+            "--host", "-h", help="Host interface to bind (strictly 127.0.0.1 or localhost)."
+        ),
+    ] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", "-p", help="Port to listen on.")] = 8765,
 ) -> None:
     """Launch the local-only read-only web inspector."""
@@ -136,7 +144,6 @@ def serve_cmd(
     except ValueError as err:
         console.print(f"[bold red]Configuration error:[/bold red] {err}")
         raise typer.Exit(code=1) from err
-
 
 
 # -----------------------------------------------------------------------------
@@ -155,7 +162,6 @@ def database_check_cmd() -> None:
         console.print(f"[bold red]Integrity check failed:[/bold red] {msg}")
         raise typer.Exit(code=1)
 
-
     fts_ok = db_mgr.check_fts5_support()
     with db_mgr.connection() as conn:
         applied = get_applied_migrations(conn)
@@ -165,7 +171,9 @@ def database_check_cmd() -> None:
     table.add_column("Value", style="bold")
     table.add_row("Database File", str(config.db_path))
     table.add_row("PRAGMA integrity_check", f"[green]{msg}[/green]" if ok else f"[red]{msg}[/red]")
-    table.add_row("FTS5 Full-Text Search", "[green]Active[/green]" if fts_ok else "[red]Missing[/red]")
+    table.add_row(
+        "FTS5 Full-Text Search", "[green]Active[/green]" if fts_ok else "[red]Missing[/red]"
+    )
     table.add_row("Applied Migrations", ", ".join(str(v) for v in sorted(applied)) or "None")
 
     console.print(table)
@@ -192,7 +200,9 @@ def database_migrate_cmd() -> None:
 
 @sources_app.command("list")
 def sources_list_cmd(
-    enabled_only: Annotated[bool, typer.Option("--enabled-only", "-e", help="Show only enabled sources")] = False,
+    enabled_only: Annotated[
+        bool, typer.Option("--enabled-only", "-e", help="Show only enabled sources")
+    ] = False,
 ) -> None:
     """List declared opportunity sources."""
     config = get_config()
@@ -200,7 +210,9 @@ def sources_list_cmd(
     sources = repo.list_sources(enabled_only=enabled_only)
 
     if not sources:
-        console.print("[yellow]No sources found. Run `openpath database migrate` to seed sources.[/yellow]")
+        console.print(
+            "[yellow]No sources found. Run `openpath database migrate` to seed sources.[/yellow]"
+        )
         return
 
     table = Table(title="OpenPath Declared Source Inventory", show_lines=True)
@@ -229,7 +241,6 @@ def sources_inspect_cmd(source_id: str) -> None:
     if not source:
         console.print(f"[bold red]Source '{source_id}' not found.[/bold red]")
         raise typer.Exit(code=1)
-
 
     table = Table(title=f"Source: {source.name} ({source.id})", show_header=False)
     table.add_column("Property", style="cyan", width=20)
@@ -262,7 +273,9 @@ def profiles_list_cmd() -> None:
     profiles = repo.list_profiles()
 
     if not profiles:
-        console.print("[yellow]No candidate profiles registered. Add one using `openpath profiles add`.[/yellow]")
+        console.print(
+            "[yellow]No candidate profiles registered. Add one using `openpath profiles add`.[/yellow]"
+        )
         return
 
     table = Table(title="Candidate Profiles", show_lines=True)
@@ -289,10 +302,18 @@ def profiles_list_cmd() -> None:
 @profiles_app.command("add")
 def profiles_add_cmd(
     name: Annotated[str, typer.Option("--name", "-n", help="Candidate profile name")],
-    degree: Annotated[str | None, typer.Option("--degree", "-d", help="Degree (e.g. B.Tech)")] = "B.Tech",
-    year: Annotated[int | None, typer.Option("--year", "-y", help="Current academic year (1-4)")] = 3,
-    discipline: Annotated[str, typer.Option("--discipline", help="Technical discipline")] = "Computer Science",
-    skills: Annotated[str, typer.Option("--skills", "-s", help="Comma-separated technical skills")] = "Python,SQL,FastAPI",
+    degree: Annotated[
+        str | None, typer.Option("--degree", "-d", help="Degree (e.g. B.Tech)")
+    ] = "B.Tech",
+    year: Annotated[
+        int | None, typer.Option("--year", "-y", help="Current academic year (1-4)")
+    ] = 3,
+    discipline: Annotated[
+        str, typer.Option("--discipline", help="Technical discipline")
+    ] = "Computer Science",
+    skills: Annotated[
+        str, typer.Option("--skills", "-s", help="Comma-separated technical skills")
+    ] = "Python,SQL,FastAPI",
 ) -> None:
     """Create and persist a new candidate profile."""
     config = get_config()
@@ -307,7 +328,9 @@ def profiles_add_cmd(
         skills=skill_list,
     )
     repo.upsert_profile(profile)
-    console.print(f"[bold green]Profile '{name}' successfully created with ID:[/bold green] {profile.id}")
+    console.print(
+        f"[bold green]Profile '{name}' successfully created with ID:[/bold green] {profile.id}"
+    )
 
 
 @profiles_app.command("validate")
@@ -316,7 +339,6 @@ def profiles_validate_cmd(profile_path: Path) -> None:
     if not profile_path.is_file():
         console.print(f"[bold red]File not found:[/bold red] {profile_path}")
         raise typer.Exit(code=1)
-
 
     try:
         content = profile_path.read_text(encoding="utf-8")
@@ -335,8 +357,17 @@ def profiles_validate_cmd(profile_path: Path) -> None:
 
 @results_app.command("list")
 def results_list_cmd(
-    status: Annotated[str | None, typer.Option("--status", "-s", help="Filter by status (verified, needs_investigation, community_lead)")] = None,
-    query: Annotated[str | None, typer.Option("--query", "-q", help="Full text search query")] = None,
+    status: Annotated[
+        str | None,
+        typer.Option(
+            "--status",
+            "-s",
+            help="Filter by status (verified, needs_investigation, community_lead)",
+        ),
+    ] = None,
+    query: Annotated[
+        str | None, typer.Option("--query", "-q", help="Full text search query")
+    ] = None,
     limit: Annotated[int, typer.Option("--limit", "-l", help="Max results to display")] = 20,
 ) -> None:
     """List discovered opportunities from the local research database."""
@@ -358,7 +389,11 @@ def results_list_cmd(
     table.add_column("Admission Class", width=18)
 
     for o in results:
-        status_color = "green" if o.admission_class == "VERIFIED" else ("yellow" if o.admission_class == "NEEDS INVESTIGATION" else "dim")
+        status_color = (
+            "green"
+            if o.admission_class == "VERIFIED"
+            else ("yellow" if o.admission_class == "NEEDS INVESTIGATION" else "dim")
+        )
         table.add_row(
             o.id,
             o.company_name,
@@ -381,8 +416,12 @@ def results_inspect_cmd(opportunity_id: str) -> None:
         console.print(f"[bold red]Opportunity '{opportunity_id}' not found.[/bold red]")
         raise typer.Exit(code=1)
 
-
-    console.print(Panel(f"[bold]{opp.title}[/bold] at [cyan]{opp.company_name}[/cyan]\nApply URL: {opp.application_url}", title=f"Opportunity {opp.id}"))
+    console.print(
+        Panel(
+            f"[bold]{opp.title}[/bold] at [cyan]{opp.company_name}[/cyan]\nApply URL: {opp.application_url}",
+            title=f"Opportunity {opp.id}",
+        )
+    )
 
     # Verification Checks Table
     chk_table = Table(title="Independent Verification Checks", show_lines=True)
@@ -391,7 +430,15 @@ def results_inspect_cmd(opportunity_id: str) -> None:
     chk_table.add_column("Explanation")
 
     for chk in opp.checks:
-        outcome = "[bold green]PASS[/bold green]" if chk.result.value == "PASS" else ("[bold red]FAIL[/bold red]" if chk.result.value == "FAIL" else "[bold yellow]UNKNOWN[/bold yellow]")
+        outcome = (
+            "[bold green]PASS[/bold green]"
+            if chk.result.value == "PASS"
+            else (
+                "[bold red]FAIL[/bold red]"
+                if chk.result.value == "FAIL"
+                else "[bold yellow]UNKNOWN[/bold yellow]"
+            )
+        )
         chk_table.add_row(chk.check_name, outcome, chk.explanation)
     console.print(chk_table)
 
@@ -402,28 +449,45 @@ def results_inspect_cmd(opportunity_id: str) -> None:
         ev_table.add_column("Source URL", style="dim")
         ev_table.add_column("Verbatim Excerpt")
         for ev in opp.evidence:
-            ev_table.add_row(ev.claim, ev.original_url, (ev.excerpt or "")[:120] + ("..." if ev.excerpt and len(ev.excerpt) > 120 else ""))
+            ev_table.add_row(
+                ev.claim,
+                ev.original_url,
+                (ev.excerpt or "")[:120] + ("..." if ev.excerpt and len(ev.excerpt) > 120 else ""),
+            )
         console.print(ev_table)
 
 
 @research_app.command("plan")
 def research_plan_cmd(
-    profile_id: Annotated[str | None, typer.Option("--profile", "-p", help="Target candidate profile ID")] = None,
+    profile_id: Annotated[
+        str | None, typer.Option("--profile", "-p", help="Target candidate profile ID")
+    ] = None,
 ) -> None:
     """Generate a targeted research plan based on candidate profile and declared sources."""
     config = get_config()
     repo = Repository(DatabaseManager(config.db_path))
     sources = repo.list_sources(enabled_only=True)
 
-    console.print(Panel(f"Planned research targets: [bold cyan]{len(sources)} enabled sources[/bold cyan] across ATS and official registries.", title="Research Plan"))
+    console.print(
+        Panel(
+            f"Planned research targets: [bold cyan]{len(sources)} enabled sources[/bold cyan] across ATS and official registries.",
+            title="Research Plan",
+        )
+    )
     for s in sources:
-        console.print(f" • [{s.authority_tier.value}] [bold]{s.name}[/bold] ({s.connector_id}) -> {s.base_url}")
+        console.print(
+            f" • [{s.authority_tier.value}] [bold]{s.name}[/bold] ({s.connector_id}) -> {s.base_url}"
+        )
 
 
 @research_app.command("run")
 def research_run_cmd(
-    source: Annotated[str | None, typer.Option("--source", "-s", help="Run research for a specific source ID")] = None,
-    profile: Annotated[str | None, typer.Option("--profile", "-p", help="Profile to evaluate eligibility against")] = None,
+    source: Annotated[
+        str | None, typer.Option("--source", "-s", help="Run research for a specific source ID")
+    ] = None,
+    profile: Annotated[
+        str | None, typer.Option("--profile", "-p", help="Profile to evaluate eligibility against")
+    ] = None,
 ) -> None:
     """Execute live research crawl across declared sources."""
     from openpath.crawler.orchestrator import ResearchOrchestrator
@@ -432,6 +496,7 @@ def research_run_cmd(
     orchestrator = ResearchOrchestrator(config)
     console.print("[bold green]Starting research run...[/bold green]")
     import asyncio
+
     run_record = asyncio.run(orchestrator.execute_run(source_id=source, profile_id=profile))
     console.print(f"[bold green]Research run completed![/bold green] Status: {run_record.status}")
 
@@ -442,7 +507,9 @@ def evidence_inspect_cmd(evidence_id: str) -> None:
     config = get_config()
     db_mgr = DatabaseManager(config.db_path)
     with db_mgr.connection() as conn:
-        row = conn.execute("SELECT * FROM evidence_records WHERE id = ?;", (evidence_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM evidence_records WHERE id = ?;", (evidence_id,)
+        ).fetchone()
         if not row:
             console.print(f"[bold red]Evidence record '{evidence_id}' not found.[/bold red]")
             raise typer.Exit(code=1)
@@ -466,8 +533,12 @@ def companies_inspect_cmd(company_id: str) -> None:
 
 @report_app.command("export")
 def report_export_cmd(
-    format: Annotated[str, typer.Option("--format", "-f", help="Export format: json or markdown")] = "json",
-    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file destination")] = None,
+    format: Annotated[
+        str, typer.Option("--format", "-f", help="Export format: json or markdown")
+    ] = "json",
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Output file destination")
+    ] = None,
 ) -> None:
     """Export verified research results and audit reports."""
     config = get_config()
@@ -479,7 +550,9 @@ def report_export_cmd(
 
     if output:
         output.write_text(json_str, encoding="utf-8")
-        console.print(f"[bold green]Exported {len(opportunities)} verified opportunities to {output}[/bold green]")
+        console.print(
+            f"[bold green]Exported {len(opportunities)} verified opportunities to {output}[/bold green]"
+        )
     else:
         console.print(json_str)
 
@@ -498,15 +571,42 @@ def report_benchmark_cmd() -> None:
     table.add_column("Observed Value", justify="center", style="bold")
     table.add_column("Target Standard", style="dim")
 
-    table.add_row("Verified Precision", f"[green]{scorecard.verified_precision_pct:.1f}%[/green]", ">= 98.0%")
-    table.add_row("Evidence Completeness", f"[green]{scorecard.evidence_completeness_pct:.1f}%[/green]", "100.0%")
-    table.add_row("Eligibility Accuracy", f"[green]{scorecard.eligibility_accuracy_pct:.1f}%[/green]", "100.0% (Zero hallucinated inferences)")
-    table.add_row("India Accessibility Accuracy", f"[green]{scorecard.india_accessibility_accuracy_pct:.1f}%[/green]", ">= 98.0%")
-    table.add_row("Duplicate Survival Rate", f"[green]{scorecard.duplicate_survival_rate_pct:.1f}%[/green]", "< 2.0%")
-    table.add_row("Reference Inventory Coverage", f"{scorecard.covered_reference_orgs} / {scorecard.total_reference_orgs} ({scorecard.source_coverage_pct:.1f}%)", "Stratified 100 orgs")
+    table.add_row(
+        "Verified Precision", f"[green]{scorecard.verified_precision_pct:.1f}%[/green]", ">= 98.0%"
+    )
+    table.add_row(
+        "Evidence Completeness",
+        f"[green]{scorecard.evidence_completeness_pct:.1f}%[/green]",
+        "100.0%",
+    )
+    table.add_row(
+        "Eligibility Accuracy",
+        f"[green]{scorecard.eligibility_accuracy_pct:.1f}%[/green]",
+        "100.0% (Zero hallucinated inferences)",
+    )
+    table.add_row(
+        "India Accessibility Accuracy",
+        f"[green]{scorecard.india_accessibility_accuracy_pct:.1f}%[/green]",
+        ">= 98.0%",
+    )
+    table.add_row(
+        "Duplicate Survival Rate",
+        f"[green]{scorecard.duplicate_survival_rate_pct:.1f}%[/green]",
+        "< 2.0%",
+    )
+    table.add_row(
+        "Reference Inventory Coverage",
+        f"{scorecard.covered_reference_orgs} / {scorecard.total_reference_orgs} ({scorecard.source_coverage_pct:.1f}%)",
+        "Stratified 100 orgs",
+    )
 
     console.print(table)
-    console.print(Panel(f"Overall Benchmark Status: [bold green]{scorecard.overall_score}[/bold green]", border_style="green"))
+    console.print(
+        Panel(
+            f"Overall Benchmark Status: [bold green]{scorecard.overall_score}[/bold green]",
+            border_style="green",
+        )
+    )
 
 
 def run_cli() -> None:

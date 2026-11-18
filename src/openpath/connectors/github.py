@@ -27,8 +27,11 @@ class GitHubConnector(BaseConnector):
     """Discovers open source mentorships, fellowships, and contributor opportunities via GitHub API."""
 
     async def fetch_opportunities(self, source: Source) -> list[Opportunity]:
-        query = source.metadata.get("search_query") or "label:internship label:mentorship state:open"
+        query = (
+            source.metadata.get("search_query") or "label:internship label:mentorship state:open"
+        )
         from urllib.parse import quote_plus
+
         api_url = f"https://api.github.com/search/issues?q={quote_plus(query)}&sort=updated&order=desc&per_page=10"
 
         logger.info("Querying GitHub API: %s", api_url)
@@ -39,7 +42,9 @@ class GitHubConnector(BaseConnector):
 
         fetch_result = await self.http_client.fetch(api_url)
         if fetch_result.status_code != 200:
-            logger.warning("GitHub API returned status %d for %s", fetch_result.status_code, api_url)
+            logger.warning(
+                "GitHub API returned status %d for %s", fetch_result.status_code, api_url
+            )
             return []
 
         try:
@@ -90,6 +95,7 @@ class GitHubConnector(BaseConnector):
             ]
 
             import hashlib
+
             stable_id = f"ghub_{hashlib.md5(html_url.encode()).hexdigest()[:12]}"
 
             opp = Opportunity(

@@ -79,7 +79,9 @@ class ResearchOrchestrator:
         try:
             for source in sources:
                 sources_attempted += 1
-                logger.info("Executing research for source %s (%s)...", source.id, source.connector_id)
+                logger.info(
+                    "Executing research for source %s (%s)...", source.id, source.connector_id
+                )
                 self.repo.record_source_access(source.id, "attempted", run_id=run_id)
 
                 try:
@@ -93,7 +95,10 @@ class ResearchOrchestrator:
                     self.repo.save_opportunities(opps)
 
                     self.repo.record_source_access(
-                        source.id, "success", detail=f"Extracted {len(opps)} opportunities", run_id=run_id
+                        source.id,
+                        "success",
+                        detail=f"Extracted {len(opps)} opportunities",
+                        run_id=run_id,
                     )
                 except Exception as err:
                     logger.error("Failed to crawl source %s: %s", source.id, err)

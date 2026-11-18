@@ -20,7 +20,10 @@ def test_server_bind_security_check(tmp_path) -> None:
         state_dir=tmp_path / "state",
         db_path=tmp_path / "test.db",
     )
-    with pytest.raises(ValueError, match=r"Security violation: OpenPath local web viewer can ONLY bind to 127\.0\.0\.1"):
+    with pytest.raises(
+        ValueError,
+        match=r"Security violation: OpenPath local web viewer can ONLY bind to 127\.0\.0\.1",
+    ):
         run_server(config, host="0.0.0.0", port=8765)
 
     with pytest.raises(ValueError, match="Security violation"):

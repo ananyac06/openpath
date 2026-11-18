@@ -94,7 +94,11 @@ class CircuitBreaker:
         self._failure_counts[domain] = count
         if count >= self.error_threshold:
             self._paused_until[domain] = time.monotonic() + self.cooldown_seconds
-            logger.warning("Circuit breaker tripped for domain %s. Paused for %d seconds.", domain, self.cooldown_seconds)
+            logger.warning(
+                "Circuit breaker tripped for domain %s. Paused for %d seconds.",
+                domain,
+                self.cooldown_seconds,
+            )
 
 
 class SafeHttpClient:
@@ -168,6 +172,7 @@ class SafeHttpClient:
                         break
                     # Resolve relative redirect URLs
                     from urllib.parse import urljoin
+
                     current_url = urljoin(current_url, redirect_location)
                     redirect_hops += 1
                     continue
@@ -213,22 +218,30 @@ class SafeHttpClient:
                     if attempt < self.config.max_retries:
                         await asyncio.sleep(wait_time)
                         continue
-                    raise RateLimitExceeded(f"Rate limit exceeded for {url}", details={"status": 429})
+                    raise RateLimitExceeded(
+                        f"Rate limit exceeded for {url}", details={"status": 429}
+                    )
 
                 # Cap max response size
                 content_len = response.headers.get("Content-Length")
                 if content_len and int(content_len) > self.config.max_response_bytes:
-                    raise NetworkError(f"Response size {content_len} bytes exceeds maximum allowed {self.config.max_response_bytes}")
+                    raise NetworkError(
+                        f"Response size {content_len} bytes exceeds maximum allowed {self.config.max_response_bytes}"
+                    )
 
                 return response
 
             except (httpx.RequestError, httpx.TimeoutException) as err:
                 last_exception = err
                 if attempt < self.config.max_retries:
-                    backoff = (self.config.backoff_factor ** attempt) + random.uniform(0.1, 0.5)
-                    logger.info("Transient error on %s: %s. Retrying in %.2fs...", url, err, backoff)
+                    backoff = (self.config.backoff_factor**attempt) + random.uniform(0.1, 0.5)
+                    logger.info(
+                        "Transient error on %s: %s. Retrying in %.2fs...", url, err, backoff
+                    )
                     await asyncio.sleep(backoff)
                 else:
                     break
 
-        raise NetworkError(f"Failed to fetch {url} after {self.config.max_retries} attempts: {last_exception}")
+        raise NetworkError(
+            f"Failed to fetch {url} after {self.config.max_retries} attempts: {last_exception}"
+        )

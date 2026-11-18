@@ -51,13 +51,27 @@ def normalize_work_mode(raw_location: str | None, text_content: str | None = Non
         return WorkMode.HYBRID
     if "onsite" in combined or "in-office" in combined or "in office" in combined:
         return WorkMode.ONSITE
-    if raw_location and any(city in raw_location.lower() for city in ["bangalore", "bengaluru", "hyderabad", "pune", "mumbai", "delhi", "noida", "gurgaon"]):
+    if raw_location and any(
+        city in raw_location.lower()
+        for city in [
+            "bangalore",
+            "bengaluru",
+            "hyderabad",
+            "pune",
+            "mumbai",
+            "delhi",
+            "noida",
+            "gurgaon",
+        ]
+    ):
         return WorkMode.ONSITE
 
     return WorkMode.UNCLEAR
 
 
-def detect_india_accessibility(raw_location: str | None, text_content: str | None = None) -> bool | None:
+def detect_india_accessibility(
+    raw_location: str | None, text_content: str | None = None
+) -> bool | None:
     """
     Check if opportunity is accessible to candidates residing in India.
     Returns:

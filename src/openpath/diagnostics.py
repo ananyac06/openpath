@@ -162,7 +162,9 @@ def run_diagnostics(config: Config) -> DiagnosticReport:
                 name="FTS5 Full-Text Search",
                 category="Database",
                 status="PASS" if has_fts5 else "FAIL",
-                message="SQLite FTS5 module enabled and active" if has_fts5 else "FTS5 not supported by SQLite",
+                message="SQLite FTS5 module enabled and active"
+                if has_fts5
+                else "FTS5 not supported by SQLite",
             )
         )
 
@@ -182,7 +184,13 @@ def run_diagnostics(config: Config) -> DiagnosticReport:
 
                 # Row counts for key tables
                 counts: dict[str, int] = {}
-                for tbl in ["sources", "source_connectors", "opportunities", "candidate_profiles"]:
+                for tbl in [
+                    "organisations",
+                    "sources",
+                    "source_connectors",
+                    "opportunities",
+                    "candidate_profiles",
+                ]:
                     try:
                         c = conn.execute(f"SELECT count(*) FROM {tbl};").fetchone()[0]
                         counts[tbl] = c
@@ -194,7 +202,7 @@ def run_diagnostics(config: Config) -> DiagnosticReport:
                         name="Database Entities",
                         category="Database",
                         status="PASS",
-                        message=f"Sources: {counts.get('sources', 0)}, Connectors: {counts.get('source_connectors', 0)}, Opportunities: {counts.get('opportunities', 0)}",
+                        message=f"Organizations: {counts.get('organisations', 0)}, Sources: {counts.get('sources', 0)}, Connectors: {counts.get('source_connectors', 0)}, Opportunities: {counts.get('opportunities', 0)}",
                         details=counts,
                     )
                 )

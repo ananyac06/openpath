@@ -51,7 +51,9 @@ class EligibilityEvaluationReport:
 class EligibilityEngine:
     """Evaluates candidate profiles against extracted opportunity facts."""
 
-    def evaluate(self, profile: CandidateProfile, opportunity: Opportunity) -> EligibilityEvaluationReport:
+    def evaluate(
+        self, profile: CandidateProfile, opportunity: Opportunity
+    ) -> EligibilityEvaluationReport:
         desc_text = (opportunity.description_text or "").lower()
         title_text = opportunity.title.lower()
         combined_text = f"{title_text} {desc_text}"
@@ -99,7 +101,9 @@ class EligibilityEngine:
 
     def _evaluate_academic_year(self, profile: CandidateProfile, text: str) -> DimensionEvaluation:
         # Check if text explicitly mentions graduation year or batch
-        batch_match = re.search(r"\b(202[4-9]|203[0-2])\s*(?:passout|batch|graduat(?:e|ing|ion))\b", text)
+        batch_match = re.search(
+            r"\b(202[4-9]|203[0-2])\s*(?:passout|batch|graduat(?:e|ing|ion))\b", text
+        )
         if batch_match:
             batch_year = int(batch_match.group(1))
             if profile.graduation_year:
@@ -135,7 +139,9 @@ class EligibilityEngine:
                     raw_requirement="final year",
                 )
 
-        if ("pre-final year" in text or "third year" in text or "3rd year" in text) and profile.academic_year == 3:
+        if (
+            "pre-final year" in text or "third year" in text or "3rd year" in text
+        ) and profile.academic_year == 3:
             return DimensionEvaluation(
                 "academic_year",
                 MatchResult.CONFIRMED_ELIGIBLE,
@@ -152,7 +158,9 @@ class EligibilityEngine:
             )
 
         # If full-time fresher / entry level:
-        if ("fresher" in text or "trainee" in text or "entry level" in text) and profile.years_experience <= 1.0:
+        if (
+            "fresher" in text or "trainee" in text or "entry level" in text
+        ) and profile.years_experience <= 1.0:
             return DimensionEvaluation(
                 "academic_year",
                 MatchResult.CONFIRMED_ELIGIBLE,
@@ -187,7 +195,10 @@ class EligibilityEngine:
             )
 
         cand_degree = (profile.degree or "").upper()
-        if any(d in cand_degree for d in ["B.TECH", "BTECH", "BE", "B.E."]) and "B.Tech / B.E." in mentioned_degrees:
+        if (
+            any(d in cand_degree for d in ["B.TECH", "BTECH", "BE", "B.E."])
+            and "B.Tech / B.E." in mentioned_degrees
+        ):
             return DimensionEvaluation(
                 "degree",
                 MatchResult.CONFIRMED_ELIGIBLE,
@@ -202,7 +213,9 @@ class EligibilityEngine:
 
     def _evaluate_experience(self, profile: CandidateProfile, text: str) -> DimensionEvaluation:
         # Check for experience requirements like "3+ years", "2-4 years", "4+ years of experience"
-        match = re.search(r"\b(\d+)\+?(?:\s*(?:to|-)\s*\d+)?\s*(?:years?|yrs?)(?:\s*of)?\s*experience", text)
+        match = re.search(
+            r"\b(\d+)\+?(?:\s*(?:to|-)\s*\d+)?\s*(?:years?|yrs?)(?:\s*of)?\s*experience", text
+        )
         if match:
             min_exp = float(match.group(1))
             raw_req = match.group(0)
@@ -221,7 +234,13 @@ class EligibilityEngine:
                     raw_requirement=raw_req,
                 )
 
-        if "0-1 year" in text or "0 to 1 year" in text or "freshers" in text or "no experience required" in text or "no prior experience" in text:
+        if (
+            "0-1 year" in text
+            or "0 to 1 year" in text
+            or "freshers" in text
+            or "no experience required" in text
+            or "no prior experience" in text
+        ):
             return DimensionEvaluation(
                 "experience",
                 MatchResult.CONFIRMED_ELIGIBLE,
@@ -273,14 +292,19 @@ class EligibilityEngine:
 
         # Check explicit location or India eligibility
         loc_str = (opportunity.location_raw or "").lower()
-        if "india" in loc_str or any(c in loc_str for c in ["bangalore", "hyderabad", "pune", "mumbai", "delhi", "noida", "gurgaon"]):
+        if "india" in loc_str or any(
+            c in loc_str
+            for c in ["bangalore", "hyderabad", "pune", "mumbai", "delhi", "noida", "gurgaon"]
+        ):
             return DimensionEvaluation(
                 "india_accessibility",
                 MatchResult.CONFIRMED_ELIGIBLE,
                 f"Opportunity location confirmed in India: {opportunity.location_raw}",
             )
 
-        if opportunity.work_mode.value == "remote" and ("worldwide" in text or "anywhere" in text or "global" in text):
+        if opportunity.work_mode.value == "remote" and (
+            "worldwide" in text or "anywhere" in text or "global" in text
+        ):
             return DimensionEvaluation(
                 "india_accessibility",
                 MatchResult.CONFIRMED_ELIGIBLE,
