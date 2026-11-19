@@ -135,7 +135,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 24px; padding: 12px 28px;
   }
-  .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font-size: 20px; font-weight: 700; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font-size: 20px; font-weight: 700; text-decoration: none; }
   .brand span { letter-spacing: -0.03em; }
   nav { display: flex; gap: 6px; flex-wrap: wrap; }
   nav a { color: var(--fg-dim); padding: 8px 16px; border-radius: 22px; text-decoration: none; font-size: 14px; }
@@ -143,13 +143,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   nav a.active { color: var(--accent); background: var(--accent-glow); font-weight: 600; }
   main { padding: 36px 28px; max-width: 1400px; margin: 0 auto; }
   .hero { text-align: center; padding: 20px 8px 28px; border-bottom: 1px dashed var(--border); margin-bottom: 28px; }
-  .hero h1 { font-size: 42px; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+  .hero h1 { font-size: clamp(26px, 4.2vw, 44px); font-weight: 800; margin: 0; letter-spacing: -0.02em; line-height: 1.1; }
   .hero p { color: var(--fg-dim); max-width: 640px; margin: 12px auto 0; font-size: 16px; }
   section { margin-bottom: 40px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 28px; }
   .stat {
     display: flex; flex-direction: column; padding: 18px 20px;
-    background: linear-gradient(135deg, var(--card), var(--bg-2));
+    background: var(--card);
     border: 1px solid var(--border); border-radius: 12px;
   }
   .stat-value { font-size: 30px; font-weight: 800; margin-bottom: 4px; }
@@ -168,7 +168,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .btn {
     display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
     border-radius: 30px; text-decoration: none; font-size: 13px; font-weight: 600;
-    border: 1px solid transparent; cursor: pointer; transition: all 0.18s; white-space: nowrap;
+    border: 1px solid transparent; cursor: pointer; transition: filter 0.18s, box-shadow 0.18s, background 0.18s; white-space: nowrap;
   }
   .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 0 0 0 var(--accent); }
   .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 14px var(--accent-glow); }
@@ -229,12 +229,48 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   #oppsGrid .company-card tbody tr:last-child td { border-bottom: 0; }
   .role-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
 
+  /* Tables scroll inside their card instead of pushing the page wide. */
+  .company-roles { overflow-x: auto; }
+  .opportunities-table, table.opportunities { min-width: 640px; }
+
+  @media (max-width: 900px) {
+    /* Two columns on tablet and phone; the fifth stat spans the full row
+       so no single card is orphaned. */
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat:last-child { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 14px; }
+    .stat:last-child .stat-value { margin-bottom: 0; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  }
+
   @media (max-width: 620px) {
-    header { gap: 10px; }
-    nav a { padding: 6px 10px; font-size: 13px; }
-    main { padding: 16px 12px; }
-    .stats { grid-template-columns: repeat(2, 1fr); }
-    table.opportunities { font-size: 12px; }
+    /* Header becomes two rows: wordmark, then a full-width tab bar. */
+    header { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 16px; }
+    .brand { font-size: 18px; }
+    nav { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    nav a { padding: 8px 10px; font-size: 13px; text-align: center; }
+    main { padding: 20px 16px; }
+    .hero { padding: 8px 0 20px; margin-bottom: 20px; }
+    .hero p { font-size: 15px; }
+    .stats { gap: 10px; margin-bottom: 20px; }
+    .stat { padding: 14px 16px; }
+    .stat-value { font-size: 26px; }
+    .stat-label { font-size: 11px; letter-spacing: 0.04em; }
+    .search { flex-direction: column; align-items: stretch; }
+    .search input { min-width: 0; width: 100%; }
+    .search .chip { align-self: flex-start; }
+    .tabs { gap: 6px; margin-bottom: 18px; }
+    .tabs button { padding: 8px 12px; font-size: 13px; }
+    .grid { grid-template-columns: 1fr; }
+    section { margin-bottom: 28px; }
+    footer { padding: 28px 16px 24px; }
+    /* Hide the two least useful columns in the roles table on phones. */
+    table.opportunities th:nth-child(4), table.opportunities td:nth-child(4),
+    table.opportunities th:nth-child(5), table.opportunities td:nth-child(5) { display: none; }
+    .company-summary { flex-wrap: wrap; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
 </style>
 </head>
@@ -441,6 +477,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (hash === "#directory") { setView("directory"); }
     else if (hash === "#opportunities") { setView("opportunities"); }
   });
+  // Shorten the long directory placeholder on small screens.
+  function fitPlaceholders() {
+    var dir = document.getElementById("dirSearchInput");
+    if (dir) {
+      dir.placeholder = window.innerWidth < 620
+        ? "Search organizations…"
+        : "Search 1,120+ verified organizations by name, ticker, or country…";
+    }
+    var role = document.getElementById("roleSearchInput");
+    if (role) {
+      role.placeholder = window.innerWidth < 620
+        ? "Search live roles…"
+        : "Search live roles by title, company, location, or class…";
+    }
+  }
+  window.addEventListener("resize", fitPlaceholders);
+  fitPlaceholders();
   setTimeout(function () {
     if (location.hash === "#opportunities") { setView("opportunities"); }
   }, 0);
