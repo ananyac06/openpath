@@ -53,16 +53,29 @@ class FetchResult:
 
 
 class DomainRateLimiter:
-    """Token-bucket rate limiter per domain."""
+    """Token-bucket rate limiter per domain.
+
+    Each domain has its own lock so that waiting on a slow/limited domain
+    never blocks requests to unrelated domains (a single global lock here
+    previously serialised the entire crawler).
+    """
 
     def __init__(self, rps: float = 1.0) -> None:
         self.rps = max(0.1, rps)
         self.interval = 1.0 / self.rps
         self._last_request_time: dict[str, float] = {}
-        self._lock = asyncio.Lock()
+        self._domain_locks: dict[str, asyncio.Lock] = {}
+
+    def _lock_for(self, domain: str) -> asyncio.Lock:
+        """Return (creating if needed) the per-domain lock."""
+        lock = self._domain_locks.get(domain)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._domain_locks[domain] = lock
+        return lock
 
     async def acquire(self, domain: str) -> None:
-        async with self._lock:
+        async with self._lock_for(domain):
             now = time.monotonic()
             last_time = self._last_request_time.get(domain, 0.0)
             elapsed = now - last_time
@@ -135,11 +148,17 @@ class SafeHttpClient:
         url: str,
         etag: str | None = None,
         if_modified_since: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> FetchResult:
-        """Fetch URL with SSRF checks, rate limiting, and exponential retries."""
+        """Fetch URL with SSRF checks, rate limiting, and exponential retries.
+
+        `headers` are extra request headers (e.g. Authorization for API tokens);
+        they are not forwarded across redirect hops to a different origin.
+        """
         current_url = url
         redirect_hops = 0
         max_redirects = 5
+        extra_headers = dict(headers or {})
 
         while redirect_hops <= max_redirects:
             # 1. SSRF Validation
@@ -157,6 +176,9 @@ class SafeHttpClient:
                 headers["If-None-Match"] = etag
             if if_modified_since:
                 headers["If-Modified-Since"] = if_modified_since
+            # Only send caller-supplied headers to the originally requested host.
+            if redirect_hops == 0:
+                headers.update(extra_headers)
 
             client = await self._get_client()
             start_time = time.monotonic()

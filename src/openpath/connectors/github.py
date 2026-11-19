@@ -40,7 +40,7 @@ class GitHubConnector(BaseConnector):
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        fetch_result = await self.http_client.fetch(api_url)
+        fetch_result = await self.http_client.fetch(api_url, headers=headers)
         if fetch_result.status_code != 200:
             logger.warning(
                 "GitHub API returned status %d for %s", fetch_result.status_code, api_url
@@ -63,6 +63,17 @@ class GitHubConnector(BaseConnector):
 
             repo_url = item.get("repository_url", "")
             repo_name = repo_url.split("/")[-1] if repo_url else "GitHub Project"
+
+            # Derive work mode from the issue's own labels rather than assuming
+            # remote; "onsite"/"in-office" labels exist in mentorship programs.
+            labels = [str(lbl.get("name", "")).lower() for lbl in item.get("labels", [])]
+            label_text = " ".join(labels)
+            if any(w in label_text for w in ("onsite", "in-office", "in person")):
+                work_mode = WorkMode.ONSITE
+            elif any(w in label_text for w in ("remote", "worldwide")):
+                work_mode = WorkMode.REMOTE
+            else:
+                work_mode = WorkMode.UNCLEAR
 
             ev_id = str(uuid.uuid4())
             evidence = EvidenceRecord(
@@ -102,8 +113,8 @@ class GitHubConnector(BaseConnector):
                 id=stable_id,
                 company_name=repo_name,
                 title=title,
-                work_mode=WorkMode.REMOTE,
-                locations=["Remote / Open Source"],
+                work_mode=work_mode,
+                locations=[f"Open Source · {repo_name}"],
                 description_text=clean_text,
                 canonical_application_url=html_url,
                 admission_class="COMMUNITY LEAD",

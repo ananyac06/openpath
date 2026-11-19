@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -12,6 +13,7 @@ from openpath.connectors.registry import get_connector
 from openpath.crawler.frontier import CrawlFrontier
 from openpath.db.connection import DatabaseManager
 from openpath.db.repository import Repository
+from openpath.models.entities import Opportunity, Source
 from openpath.network.client import SafeHttpClient
 
 logger = logging.getLogger(__name__)
@@ -76,60 +78,99 @@ class ResearchOrchestrator:
         total_extracted = 0
         total_verified = 0
 
+        # 3. Crawl all sources concurrently. Each source is one board/API
+        # (a distinct domain), so fetching them in parallel gives the largest
+        # throughput gain; a failure in one source never aborts the others.
+        sources = list(sources)
+        sources_attempted = len(sources)
+
+        async def crawl_source(source: Source) -> tuple[list[Opportunity], Exception | None]:
+            logger.info("Executing research for source %s (%s)...", source.id, source.connector_id)
+            try:
+                connector = get_connector(source.connector_id, self.http_client)
+                opps = await connector.fetch_opportunities(source)
+                return opps, None
+            except Exception as err:  # keep crawling the remaining sources
+                logger.error("Failed to crawl source %s: %s", source.id, err)
+                return [], err
+
         try:
             for source in sources:
-                sources_attempted += 1
-                logger.info(
-                    "Executing research for source %s (%s)...", source.id, source.connector_id
-                )
                 self.repo.record_source_access(source.id, "attempted", run_id=run_id)
 
-                try:
-                    connector = get_connector(source.connector_id, self.http_client)
-                    opps = await connector.fetch_opportunities(source)
+            results = await asyncio.gather(*(crawl_source(source) for source in sources))
 
-                    for opp in opps:
-                        total_extracted += 1
-                        if opp.admission_class == "VERIFIED":
-                            total_verified += 1
-                    self.repo.save_opportunities(opps)
+            total_extracted: int = 0
+            total_verified: int = 0
+            per_source: dict[str, dict[str, int | str]] = {}
 
-                    self.repo.record_source_access(
-                        source.id,
-                        "success",
-                        detail=f"Extracted {len(opps)} opportunities",
-                        run_id=run_id,
-                    )
-                except Exception as err:
-                    logger.error("Failed to crawl source %s: %s", source.id, err)
+            for source, (opps, err) in zip(sources, results, strict=True):
+                if err is not None:
                     self.repo.record_source_access(
                         source.id, "failed", detail=str(err), run_id=run_id
                     )
+                    per_source[source.id] = {"status": "failed", "opportunities": 0}
+                    continue
+
+                self.repo.save_opportunities(opps)
+                verified = sum(1 for o in opps if o.admission_class == "VERIFIED")
+                total_extracted += len(opps)
+                total_verified += verified
+                self.repo.record_source_access(
+                    source.id,
+                    "success",
+                    detail=f"Extracted {len(opps)} opportunities",
+                    run_id=run_id,
+                )
+                per_source[source.id] = {
+                    "status": "success",
+                    "opportunities": len(opps),
+                    "verified": verified,
+                }
 
             finished_at = datetime.now(UTC).isoformat()
             coverage_data = {
                 "sources_attempted": sources_attempted,
                 "opportunities_extracted": total_extracted,
                 "opportunities_verified": total_verified,
+                "per_source": per_source,
             }
 
             with self.db_mgr.transaction() as conn:
                 conn.execute(
                     """
                     UPDATE crawl_runs
-                    SET status = 'completed', finished_at = ?, coverage_json = ?
+                    SET status = ?, finished_at = ?, coverage_json = ?
                     WHERE id = ?;
                     """,
-                    (finished_at, json.dumps(coverage_data), run_id),
+                    (
+                        run_status_placeholder(coverage_data),
+                        finished_at,
+                        json.dumps(coverage_data),
+                        run_id,
+                    ),
                 )
+
+            failed = [sid for sid, info in per_source.items() if info["status"] == "failed"]
+            run_status = "completed" if not failed else "partial"
 
             return RunResult(
                 run_id=run_id,
-                status="completed",
+                status=run_status,
                 sources_attempted=sources_attempted,
                 opportunities_extracted=total_extracted,
                 opportunities_verified=total_verified,
             )
-
         finally:
             await self.http_client.close()
+
+
+def run_status_placeholder(coverage_data: dict[str, object]) -> str:
+    """Compute crawl run status: completed when every source succeeded."""
+    per_source = coverage_data.get("per_source", {})
+    if not isinstance(per_source, dict):
+        return "completed"
+    failed = any(
+        isinstance(info, dict) and info.get("status") == "failed" for info in per_source.values()
+    )
+    return "partial" if failed else "completed"
