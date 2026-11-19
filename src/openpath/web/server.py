@@ -155,6 +155,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .stat-value { font-size: 30px; font-weight: 800; margin-bottom: 4px; }
   .stat-label { color: var(--fg-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  /* Opportunity cards carry a wide roles table: give them two columns so the
+     table fits without horizontal scrolling at desktop widths. */
+  #oppsGrid { grid-template-columns: repeat(auto-fill, minmax(540px, 1fr)); }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
   .card-title { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -192,7 +195,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .badge.hybrid { background: rgba(5,202,240,0.14); color: var(--blue); border-color: var(--blue); }
   .badge.onsite { background: rgba(247,129,57,0.14); color: var(--orange); border-color: var(--orange); }
   .badge.verified { background: rgba(63,140,255,0.14); color: var(--accent); border-color: var(--accent); }
-  .title { font-size: 15px; } .title a { color: var(--fg); text-decoration: none; font-weight: 600; } .title a:hover { text-decoration: underline; }
+  a.title { font-size: 14px; color: var(--fg); text-decoration: none; font-weight: 600; }
+  a.title:hover { color: var(--accent); text-decoration: underline; }
   .muted { color: var(--fg-dim); font-size: 13px; }
   .inline-table td { border-bottom: 1px solid var(--border); }
   footer { display: flex; gap: 16px; align-items: center; padding: 40px 28px 32px; border-top: 1px solid var(--border); font-size: 13px; color: var(--fg-dim); flex-wrap: wrap; justify-content: space-between; }
@@ -218,11 +222,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   #emptyOpps .btn { display: inline-flex; }
   .opps-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   #directoryGrid .company-card .avatar { width: 40px; height: 40px; border-radius: 12px; font-size: 16px; }
-  #oppsGrid .company-card .company-summary { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
-  #oppsGrid .company-card .company-header-left { display: flex; align-items: center; gap: 10px; flex: 1; }
-  #oppsGrid .company-card .company-title-block { font-size: 17px; }
-  #oppsGrid .company-card .company-title { margin: 0; }
-  #oppsGrid .company-card .company-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Grid children must be allowed to shrink below the table's min-width,
+     otherwise the cards grow wider than the columns and the page scrolls. */
+  .card, .company-card { min-width: 0; }
+  #oppsGrid .company-card .company-summary { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  #oppsGrid .company-card .company-header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  #oppsGrid .company-card .company-title-block { font-size: 16px; min-width: 0; }
+  #oppsGrid .company-card .company-title {
+    margin: 0; font-size: 16px; line-height: 1.25;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #oppsGrid .company-card .company-ticker {
+    display: block; margin-top: 3px; font-size: 11px; font-weight: 500;
+    color: var(--fg-dim); letter-spacing: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #oppsGrid .company-card .badge-count { flex-shrink: 0; font-size: 11px; }
+  #oppsGrid .company-card .company-badges { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; max-width: 45%; justify-content: flex-end; }
+  #oppsGrid .company-card .company-badges .badge { font-size: 10px; white-space: nowrap; }
   #oppsGrid .company-card table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
   #oppsGrid .company-card thead th { padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-dim); border-bottom: 1px solid var(--border); background: var(--bg-2); }
   #oppsGrid .company-card tbody tr:hover { background: rgba(63,140,255,0.05); }
@@ -240,6 +257,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .stat:last-child { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 14px; }
     .stat:last-child .stat-value { margin-bottom: 0; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    #oppsGrid { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 620px) {
@@ -309,6 +327,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div id="sectionOpportunities">
       <div class="search">
         <input type="text" id="roleSearchInput" placeholder="Search live roles by title, company, location, or class…" autocomplete="off">
+      </div>
+      <div class="tabs" id="oppTabs">
+        <button type="button" class="active" id="tabAllOpps">All Live Roles</button>
+        <button type="button" id="tabInternship">Internships</button>
+        <button type="button" id="tabEntry">Entry-Level</button>
+        <button type="button" id="tabRemote">Remote &amp; Hybrid</button>
+        <button type="button" id="tabUsSp500">S&amp;P 500</button>
+        <button type="button" id="tabIndianTech">Indian Tech</button>
       </div>
       <section class="grid" id="oppsGrid">{cards}</section>
     </div>
@@ -386,17 +412,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return fields.some(function (f) { return f && f.toLowerCase().indexOf(q) >= 0; });
   }
 
-  function oppMatchesFilter(card, filter) {
+  // Row-level filters: each <tr> carries data-role-type and data-work-mode;
+  // company category lives on the enclosing <details> card.
+  function rowMatchesFilter(row, filter) {
     if (filter === "all") { return true; }
-    var types = card.querySelector(".opp-role-type");
-    if (!types) { return false; }
-    var flag = types.getAttribute("data-types") || "";
-    return flag.indexOf(filter) >= 0;
+    if (filter === "remote") {
+      var mode = row.getAttribute("data-work-mode");
+      return mode === "remote" || mode === "hybrid";
+    }
+    if (filter === "us_sp500" || filter === "indian_tech") {
+      var card = row.closest(".company-card");
+      var cat = card ? card.getAttribute("data-category") : "";
+      return filter === "us_sp500" ? cat === "us_sp500"
+        : (cat === "indian_tech" || cat === "indian_listed");
+    }
+    return row.getAttribute("data-role-type") === filter;
   }
 
-  function oppMatchesSearch(card, q) {
+  function rowMatchesSearch(row, q) {
     if (!q) { return true; }
-    return (card.textContent || "").toLowerCase().indexOf(q) >= 0;
+    return (row.textContent || "").toLowerCase().indexOf(q) >= 0;
   }
 
   function applyDirFilters() {
@@ -411,7 +446,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     roles.forEach(function (row) {
       var card = row.closest("details");
       if (!card) { return; }
-      var matched = oppMatchesFilter(card, state.oppFilter) && oppMatchesSearch(card, state.roleSearch);
+      var matched = rowMatchesFilter(row, state.oppFilter) && rowMatchesSearch(row, state.roleSearch);
       row.classList.toggle("hidden", !matched);
       if (matched) { hasMatches = true; }
     });
@@ -667,9 +702,9 @@ class LocalViewerHandler(BaseHTTPRequestHandler):
                 f"    <div class='company-header-left'>\n"
                 f"      <div class='company-avatar' style='background: {avatar_color};'>{initial}</div>\n"
                 f"      <div class='company-title-block'>\n"
-                f"        <h2 class='company-title'>{html.escape(company_name)} <span class='company-ticker'>({html.escape(ticker)})</span></h2>\n"
+                f"        <h2 class='company-title' title='{html.escape(company_name)}'>{html.escape(company_name)}</h2>\n"
+                f"        <span class='company-ticker' title='{html.escape(ticker)}'>({html.escape(ticker)})</span>\n"
                 f"      </div>\n"
-                f"      <span class='badge-count'>{total_jobs} positions</span>\n"
                 f"    </div>\n"
                 f"    <div class='company-badges'>\n"
                 f"      <span class='badge badge-live' style='cursor:pointer;' onclick='filterOppCompany(\"{html.escape(company_name)}\")'>🔥 {total_jobs} Live Roles</span>\n"
