@@ -93,3 +93,60 @@ def test_eligibility_missing_year_remains_unclear() -> None:
     # Academic year must be UNCLEAR, not confirmed!
     assert dim_map["academic_year"] == MatchResult.UNCLEAR
     assert report.overall_result == MatchResult.UNCLEAR
+
+
+def test_pre_final_year_is_not_treated_as_final_year() -> None:
+    """'pre-final year' contains 'final year' as a substring; a 3rd-year
+    student must still be eligible when the listing says 'pre-final year'."""
+    engine = EligibilityEngine()
+    profile = CandidateProfile(name="Third Year", degree="B.Tech", academic_year=3)
+    opp = Opportunity(
+        company_name="Tech Corp",
+        title="Software Intern",
+        work_mode=WorkMode.ONSITE,
+        locations=["Bangalore, India"],
+        description_text="Open to pre-final year students (3rd year) for summer internship.",
+        canonical_application_url="https://example.com/pre-final",
+        admission_class="VERIFIED",
+    )
+    report = engine.evaluate(profile, opp)
+    year = next(d for d in report.dimension_evaluations if d.dimension == "academic_year")
+    assert year.result == MatchResult.CONFIRMED_ELIGIBLE
+
+
+def test_degree_regex_does_not_match_everyday_word_be() -> None:
+    """'will be responsible' and 'contact me' must not invent a degree
+    requirement — that would silently confirm B.Tech eligibility."""
+    engine = EligibilityEngine()
+    profile = CandidateProfile(name="Student", degree="B.Tech", academic_year=3)
+    opp = Opportunity(
+        company_name="Tech Corp",
+        title="Engineer",
+        work_mode=WorkMode.ONSITE,
+        locations=["Bangalore, India"],
+        description_text="You will be responsible for building services. Contact me anytime.",
+        canonical_application_url="https://example.com/be-word",
+        admission_class="VERIFIED",
+    )
+    report = engine.evaluate(profile, opp)
+    degree = next(d for d in report.dimension_evaluations if d.dimension == "degree")
+    assert degree.result == MatchResult.UNCLEAR
+
+
+def test_global_remote_does_not_override_explicit_region_restriction() -> None:
+    """A stray 'global'/'worldwide' marketing word must not confirm India
+    eligibility when the listing explicitly restricts residency."""
+    engine = EligibilityEngine()
+    profile = CandidateProfile(name="India Student", degree="B.Tech", academic_year=3)
+    opp = Opportunity(
+        company_name="Tech Corp",
+        title="Remote Engineer",
+        work_mode=WorkMode.REMOTE,
+        locations=["Remote"],
+        description_text="We are a global company with offices worldwide. Must reside in California, USA.",
+        canonical_application_url="https://example.com/us-only",
+        admission_class="VERIFIED",
+    )
+    report = engine.evaluate(profile, opp)
+    access = next(d for d in report.dimension_evaluations if d.dimension == "india_accessibility")
+    assert access.result != MatchResult.CONFIRMED_ELIGIBLE

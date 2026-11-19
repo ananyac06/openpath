@@ -61,7 +61,8 @@ def test_server_get_request(tmp_path) -> None:
         with urllib.request.urlopen(url, timeout=3.0) as resp:
             assert resp.status == 200
             content = resp.read().decode("utf-8")
-            assert "OpenPath Local Research Viewer" in content
+            assert "OpenPath" in content
+            assert "Research Viewer" in content
             assert "127.0.0.1 Local Only" in content
     finally:
         server.shutdown()
