@@ -83,12 +83,17 @@ class AshbyConnector(BaseConnector):
 
             india_eligible = detect_india_accessibility(raw_location, clean_text)
 
-            # Check compensation
+            # Compensation: Ashby returns a per-job compensation object with
+            # compensationTierSummary; a board-level summary is only a fallback.
             compensation_str = "Not disclosed"
-            if "compensation" in data and isinstance(data["compensation"], dict):
+            job_comp = job.get("compensation")
+            tier_summary = (
+                job_comp.get("compensationTierSummary") if isinstance(job_comp, dict) else None
+            ) or job.get("compensationTierSummary")
+            if not tier_summary and isinstance(data.get("compensation"), dict):
                 tier_summary = data["compensation"].get("compensationTierSummary")
-                if tier_summary:
-                    compensation_str = tier_summary
+            if tier_summary:
+                compensation_str = str(tier_summary)
 
             ev_id = str(uuid.uuid4())
             evidence = EvidenceRecord(
