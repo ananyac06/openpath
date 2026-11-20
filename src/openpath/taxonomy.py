@@ -89,12 +89,24 @@ class FunctionArea(StrEnum):
 
 
 _FUNCTION_PATTERNS: tuple[tuple[FunctionArea, re.Pattern[str]], ...] = (
-    (FunctionArea.SECURITY, re.compile(r"\b(security|threat|vulnerability|infosec|soc|abuse|fraud)\b", re.IGNORECASE)),
+    (
+        FunctionArea.SECURITY,
+        re.compile(r"\b(security|threat|vulnerability|infosec|soc|abuse|fraud)\b", re.IGNORECASE),
+    ),
     (FunctionArea.RESEARCH, re.compile(r"\b(research|scientist|科研)\b", re.IGNORECASE)),
-    (FunctionArea.DATA_AI, re.compile(r"\b(data|analytics|analytic|machine learning|\bml\b|intelligence|statistic|forecast)\b", re.IGNORECASE)),
+    (
+        FunctionArea.DATA_AI,
+        re.compile(
+            r"\b(data|analytics|analytic|machine learning|\bml\b|intelligence|statistic|forecast)\b",
+            re.IGNORECASE,
+        ),
+    ),
     (
         FunctionArea.CUSTOMER_SUCCESS,
-        re.compile(r"\b(customer success|customer experience|customer care|support|technical success)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(customer success|customer experience|customer care|support|technical success)\b",
+            re.IGNORECASE,
+        ),
     ),
     (
         FunctionArea.PRODUCT_DESIGN,
@@ -105,7 +117,10 @@ _FUNCTION_PATTERNS: tuple[tuple[FunctionArea, re.Pattern[str]], ...] = (
     ),
     (
         FunctionArea.PEOPLE_WORKPLACE,
-        re.compile(r"\b(workplace|\bhr\b|human resources|talent|recruit|people|facilities|office admin)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(workplace|\bhr\b|human resources|talent|recruit|people|facilities|office admin)\b",
+            re.IGNORECASE,
+        ),
     ),
     (
         FunctionArea.GO_TO_MARKET,
@@ -116,7 +131,10 @@ _FUNCTION_PATTERNS: tuple[tuple[FunctionArea, re.Pattern[str]], ...] = (
     ),
     (
         FunctionArea.FINANCE_LEGAL,
-        re.compile(r"\b(finance|financial|accounting|audit|legal|tax|payroll|treasury|compliance)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(finance|financial|accounting|audit|legal|tax|payroll|treasury|compliance)\b",
+            re.IGNORECASE,
+        ),
     ),
     (
         FunctionArea.ENGINEERING,
@@ -381,9 +399,7 @@ _COLLECTION_DEFS: tuple[Collection, ...] = (
         blurb="Internships, new grad and junior roles - the beginner-friendly shelf",
         icon="s",
         group="curated",
-        matcher=_stages(
-            CareerStage.INTERNSHIP, CareerStage.NEW_GRAD, CareerStage.ENTRY
-        ),
+        matcher=_stages(CareerStage.INTERNSHIP, CareerStage.NEW_GRAD, CareerStage.ENTRY),
     ),
     Collection(
         id="internships",

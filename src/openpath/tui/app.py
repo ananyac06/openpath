@@ -249,7 +249,9 @@ class OpenPathApp(App[None]):
     def _init_results_table(self) -> None:
         table = self.query_one("#results_table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("ID", "Company", "Title", "Stage", "Function", "Location", "Mode", "Status")
+        table.add_columns(
+            "ID", "Company", "Title", "Stage", "Function", "Location", "Mode", "Status"
+        )
 
     def _init_sources_table(self) -> None:
         table = self.query_one("#sources_table", DataTable)

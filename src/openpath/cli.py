@@ -260,6 +260,53 @@ def sources_inspect_cmd(source_id: str) -> None:
     console.print(table)
 
 
+@sources_app.command("discover")
+def sources_discover_cmd(
+    limit: Annotated[int, typer.Option("--limit", help="Max candidate boards to probe")] = 120,
+) -> None:
+    """Probe candidate ATS boards live and register the ones with open jobs.
+
+    Each candidate is checked against its public job-board API; only boards
+    that return live postings are registered. Nothing is registered without a
+    successful live response.
+    """
+    import asyncio
+
+    from openpath.crawler.discovery import DiscoveryResult, discover_sources
+    from openpath.network.client import SafeHttpClient
+
+    config = get_config()
+    db_mgr = DatabaseManager(config.db_path)
+    with db_mgr.connection() as conn:
+        apply_migrations(conn)
+    repo = Repository(db_mgr)
+
+    before = len(repo.list_sources())
+
+    async def run() -> list[DiscoveryResult]:
+        http = SafeHttpClient(config.crawler)
+        try:
+            return await discover_sources(http, repo, probe_limit=limit)
+        finally:
+            await http.close()
+
+    results = asyncio.run(run())
+    registered = [r for r in results if r.ok]  # type: ignore[attr-defined]
+
+    table = Table(title="Source Discovery (live probes)")
+    table.add_column("Board")
+    table.add_column("Outcome")
+    table.add_column("Detail")
+    for res in results:
+        table.add_row(res.url, res.status, res.detail[:60])  # type: ignore[attr-defined]
+
+    console.print(table)
+    console.print(
+        f"[green]{len(registered)} new board(s) registered[/green] "
+        f"({before} sources before, {len(repo.list_sources())} after)."
+    )
+
+
 # -----------------------------------------------------------------------------
 # Profiles Commands
 # -----------------------------------------------------------------------------

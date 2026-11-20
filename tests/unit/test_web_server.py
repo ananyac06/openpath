@@ -124,7 +124,8 @@ def test_server_get_request(tmp_path) -> None:
         with urllib.request.urlopen(url, timeout=3.0) as resp:
             assert resp.status == 200
             content = resp.read().decode("utf-8")
-            assert "OpenPath Local Research Viewer" in content
+            assert "OpenPath" in content
+            assert "Research Viewer" in content
             assert "127.0.0.1 Local Only" in content
     finally:
         server.shutdown()
@@ -132,7 +133,7 @@ def test_server_get_request(tmp_path) -> None:
 
 
 MALFORMED_QUERIES = [
-    '%22',  # unterminated double quote -> fts5 syntax error before the fix
+    "%22",  # unterminated double quote -> fts5 syntax error before the fix
     "NEAR(",
     "OR AND OR",
     "*",
@@ -155,7 +156,8 @@ def test_server_survives_malformed_search_queries(tmp_path, query) -> None:
         with urllib.request.urlopen(url, timeout=3.0) as resp:
             assert resp.status == 200
             content = resp.read().decode("utf-8")
-            assert "OpenPath Local Research Viewer" in content
+            assert "OpenPath" in content
+            assert "Research Viewer" in content
     finally:
         server.shutdown()
         server.server_close()

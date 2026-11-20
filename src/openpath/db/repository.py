@@ -111,6 +111,42 @@ class Repository:
                 )
             return results
 
+    def register_source(self, source: Source) -> None:
+        """Insert or update a source row (used by `sources discover`)."""
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO sources (
+                    id, connector_id, name, category, base_url, authority_tier,
+                    access_method, policy_url, enabled, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    connector_id = excluded.connector_id,
+                    name = excluded.name,
+                    category = excluded.category,
+                    base_url = excluded.base_url,
+                    authority_tier = excluded.authority_tier,
+                    access_method = excluded.access_method,
+                    policy_url = excluded.policy_url,
+                    enabled = excluded.enabled,
+                    metadata_json = excluded.metadata_json;
+                """,
+                (
+                    source.id,
+                    source.connector_id,
+                    source.name,
+                    source.category,
+                    source.base_url,
+                    source.authority_tier.value
+                    if hasattr(source.authority_tier, "value")
+                    else str(source.authority_tier),
+                    source.access_method,
+                    source.policy_url,
+                    int(bool(source.enabled)),
+                    json.dumps(source.metadata or {}),
+                ),
+            )
+
     def get_source(self, source_id: str) -> Source | None:
         """Retrieve a specific source by ID."""
         with self.db.connection() as conn:

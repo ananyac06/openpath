@@ -123,7 +123,7 @@ class EligibilityEngine:
                     )
 
         # Check for specific year requirements: "3rd year", "final year", "pre-final year"
-        if "final year" in text or "graduating student" in text:
+        if re.search(r"(?<!pre-)\bfinal year\b", text) or "graduating student" in text:
             if profile.academic_year == 4:
                 return DimensionEvaluation(
                     "academic_year",
@@ -175,8 +175,8 @@ class EligibilityEngine:
 
     def _evaluate_degree(self, profile: CandidateProfile, text: str) -> DimensionEvaluation:
         degree_patterns = [
-            (r"\bb\.?tech\b|\bb\.?e\.?\b", "B.Tech / B.E."),
-            (r"\bm\.?tech\b|\bm\.?e\.?\b", "M.Tech / M.E."),
+            (r"\bb\.?tech\b|\bb\.e\.", "B.Tech / B.E."),
+            (r"\bm\.?tech\b|\bm\.e\.", "M.Tech / M.E."),
             (r"\bmca\b", "MCA"),
             (r"\bbca\b", "BCA"),
             (r"\bb\.?sc\b|\bm\.?sc\b", "B.Sc / M.Sc"),
@@ -302,8 +302,21 @@ class EligibilityEngine:
                 f"Opportunity location confirmed in India: {opportunity.location_raw}",
             )
 
-        if opportunity.work_mode.value == "remote" and (
-            "worldwide" in text or "anywhere" in text or "global" in text
+        # An explicit residency/citizenship restriction wins over vague
+        # "global"/"worldwide" marketing copy. Never infer India eligibility
+        # from a stray marketing word when the listing restricts the region.
+        restriction_patterns = (
+            r"must (?:reside|be based|be located|live) in (?:the )?(?:us|united states|california|uk|europe|canada|australia)",
+            r"(?:only|open only to) (?:us|u\.s\.|united states|uk|europe|canadian|australian) (?:residents|candidates|applicants|citizens)",
+            r"(?:us|u\.s\.|united states|uk|europe|canadian|australian) (?:residents|candidates|applicants|citizens) only",
+            r"not (?:open|available) to (?:indian|international) (?:residents|candidates|applicants)",
+            r"cannot (?:hire|employ) in india",
+        )
+        has_restriction = any(re.search(p, text, re.IGNORECASE) for p in restriction_patterns)
+        if (
+            opportunity.work_mode.value == "remote"
+            and not has_restriction
+            and ("worldwide" in text or "anywhere" in text or "global" in text)
         ):
             return DimensionEvaluation(
                 "india_accessibility",
