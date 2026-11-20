@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 from typing import Any
 
@@ -340,6 +341,27 @@ class Repository:
             for opp in opps:
                 self._save_opportunity_in_tx(conn, opp)
 
+    @staticmethod
+    def _build_fts_match_query(search_query: str) -> str | None:
+        """Convert free text into a safe FTS5 MATCH expression.
+
+        A raw query string from a search box is *not* valid FTS5 syntax: quotes,
+        operators, ``*`` or ``NEAR/3`` all raise ``sqlite3.OperationalError``. The
+        old behaviour was to pass the string straight through, which killed the
+        request (and the connection) whenever a user typed a quote.
+
+        Rules, in order:
+        1. Strip every non-word character that could form FTS5 syntax.
+        2. Keep only tokens of 2+ characters.
+        3. AND the remaining tokens so search behaves like "all of these words".
+        4. Return None when nothing usable remains, which falls back to listing.
+        """
+        tokens = re.findall(r"[\w']+", search_query, flags=re.UNICODE)
+        meaningful = [tok for tok in tokens if len(tok) >= 2]
+        if not meaningful:
+            return None
+        return " AND ".join(f'"{tok}"' for tok in meaningful)
+
     def list_opportunities(
         self,
         status: str | None = None,
@@ -356,10 +378,12 @@ class Repository:
             params.extend([status, status])
 
         if search_query:
-            where_clauses.append(
-                "o.id IN (SELECT opportunity_id FROM opportunity_fts WHERE opportunity_fts MATCH ?)"
-            )
-            params.append(search_query)
+            fts_query = self._build_fts_match_query(search_query)
+            if fts_query:
+                where_clauses.append(
+                    "o.id IN (SELECT opportunity_id FROM opportunity_fts WHERE opportunity_fts MATCH ?)"
+                )
+                params.append(fts_query)
 
         query = """
             SELECT o.*, COALESCE(org.canonical_name, 'Unknown Organization') AS company_name

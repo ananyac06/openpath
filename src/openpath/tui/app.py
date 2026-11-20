@@ -13,7 +13,6 @@ from textual.widgets import (
     DataTable,
     Footer,
     Header,
-    Input,
     Label,
     Markdown,
     Static,
@@ -26,6 +25,8 @@ from openpath.config import get_config
 from openpath.db.connection import DatabaseManager
 from openpath.db.repository import Repository
 from openpath.diagnostics import run_diagnostics
+from openpath.models.entities import Opportunity
+from openpath.taxonomy import CAREER_STAGE_LABELS, FUNCTION_AREA_LABELS, classify_role
 
 
 class OpenPathApp(App[None]):
@@ -85,6 +86,10 @@ class OpenPathApp(App[None]):
         Binding("x", "switch_tab('tab_diagnostics')", "Diagnostics", show=True),
     ]
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._result_opps: list[Opportunity] = []
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with TabbedContent(id="tabs"):
@@ -130,10 +135,11 @@ class OpenPathApp(App[None]):
                 yield Label("[bold cyan]Recent Research Activity[/bold cyan]")
                 yield Static(
                     "Welcome to OpenPath Research Console.\n"
-                    "• Press [bold]r[/bold] to browse discovered opportunities with verified evidence.\n"
-                    "• Press [bold]s[/bold] to inspect source connectors (Greenhouse, Lever, Ashby, etc.).\n"
-                    "• Press [bold]m[/bold] to view the real-time crawler monitor.\n"
-                    "• Press [bold]x[/bold] to run system diagnostics and database health checks.",
+                    "• Press [bold]r[/bold] to browse opportunities with stage/function classification.\n"
+                    "• Run [bold]openpath web[/bold] for curated collections (Start Here, Internships, Remote, India, etc.).\n"
+                    "• Press [bold]s[/bold] to inspect source connectors.\n"
+                    "• Press [bold]m[/bold] to view the live crawl monitor.\n"
+                    "• Press [bold]x[/bold] to run system diagnostics.",
                     id="dash_recent_activity",
                 )
 
@@ -141,17 +147,17 @@ class OpenPathApp(App[None]):
         with Horizontal():
             with Vertical():
                 with Horizontal():
-                    yield Input(
-                        placeholder="Search opportunities (title, skills, company)...",
-                        id="results_search_input",
-                    )
-                    yield Button("Filter: All", id="btn_filter_status", variant="primary")
+                    yield Label("[bold cyan]Discovered Opportunities[/bold cyan]")
                     yield Button("Refresh", id="btn_refresh_results")
+                yield Static(
+                    "Classified by career stage and function from listing titles (unknowns are shown as unspecified, not guessed). "
+                    "For curated, filterable collections, use: [bold]openpath web[/bold]",
+                )
                 yield DataTable(id="results_table")
             with VerticalScroll(id="detail_pane"):
-                yield Label("[bold cyan]Opportunity Details[/bold cyan]")
+                yield Label("[bold cyan]Opportunity Details & Evidence[/bold cyan]")
                 yield Markdown(
-                    "*Select an opportunity from the table to inspect evidence.*",
+                    "*Select an opportunity from the table to inspect details and evidence.*",
                     id="result_detail_markdown",
                 )
 
@@ -243,7 +249,7 @@ class OpenPathApp(App[None]):
     def _init_results_table(self) -> None:
         table = self.query_one("#results_table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("ID", "Company", "Title", "Location", "Mode", "Status")
+        table.add_columns("ID", "Company", "Title", "Stage", "Function", "Location", "Mode", "Status")
 
     def _init_sources_table(self) -> None:
         table = self.query_one("#sources_table", DataTable)
@@ -291,13 +297,17 @@ class OpenPathApp(App[None]):
 
         # 3. Populate Results Table
         opps = repo.list_opportunities(limit=100)
+        self._result_opps = opps
         res_table = self.query_one("#results_table", DataTable)
         res_table.clear()
         for o in opps:
+            cls = classify_role(o.title)
             res_table.add_row(
                 o.id[:8],
                 o.company_name,
                 o.title,
+                CAREER_STAGE_LABELS[cls.stage],
+                FUNCTION_AREA_LABELS[cls.function],
                 o.location_raw or "Not disclosed",
                 o.work_mode.value,
                 o.admission_class,
@@ -308,11 +318,12 @@ class OpenPathApp(App[None]):
         prof_table = self.query_one("#profiles_table", DataTable)
         prof_table.clear()
         for p in profiles:
+            year = "N/A" if p.academic_year is None else str(p.academic_year)
             prof_table.add_row(
                 p.id[:8],
                 p.name,
                 p.degree or "N/A",
-                str(p.academic_year) or "N/A",
+                year,
                 p.discipline or "N/A",
                 ", ".join(p.skills[:3]),
             )
@@ -360,14 +371,22 @@ class OpenPathApp(App[None]):
             opp_short_id = str(row[0])
             config = get_config()
             repo = Repository(DatabaseManager(config.db_path))
-            opps = repo.list_opportunities(limit=500)
-            target = next((o for o in opps if o.id.startswith(opp_short_id)), None)
+            candidates = self._result_opps or repo.list_opportunities(limit=500)
+            target = next((o for o in candidates if o.id.startswith(opp_short_id)), None)
             if target:
                 full_opp = repo.get_opportunity(target.id)
                 if full_opp:
+                    cls = classify_role(full_opp.title)
                     md_text = f"### {full_opp.title}\n\n"
                     md_text += f"**Company:** {full_opp.company_name}\n\n"
-                    md_text += f"**Location:** {full_opp.location_raw or 'Not disclosed'} ({full_opp.work_mode.value})\n\n"
+                    md_text += (
+                        f"**Classification:** {CAREER_STAGE_LABELS[cls.stage]} · "
+                        f"{FUNCTION_AREA_LABELS[cls.function]}\n\n"
+                    )
+                    md_text += (
+                        f"**Location:** {full_opp.location_raw or 'Not disclosed'} "
+                        f"({full_opp.work_mode.value})\n\n"
+                    )
                     md_text += f"**Compensation:** {full_opp.compensation_raw}\n\n"
                     md_text += f"**Apply URL:** [{full_opp.application_url}]({full_opp.application_url})\n\n"
                     md_text += f"**Admission:** `{full_opp.admission_class}` | **Status:** `{full_opp.status}`\n\n"
